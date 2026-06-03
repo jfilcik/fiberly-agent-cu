@@ -17,6 +17,7 @@ Your goal is to produce a safe, explicit, user-approved setup flow that covers:
 - guided CU prerequisite completion with direct CU Studio settings link
 - `.env` updates for CU and Foundry IQ CU demo endpoints
 - `.env` updates for CU, Foundry endpoint, and agent model deployment
+- Foundry model deployment requirement checks and provisioning guidance when missing
 - optional Azure provisioning via `azd up`
 - CU demo KB ingestion setup (`--cu-demo`)
 - CU analyzer creation
@@ -33,6 +34,14 @@ Use this skill when the user asks to:
 
 Prefer this skill over ad hoc instructions because it enforces permission gates and checks every required dependency.
 
+## Required startup announcement
+
+At skill start (before any checks or choices), announce this intent clearly:
+
+"This setup skill will help you prepare Cloud-based Foundry and related Azure resources, plus required local software components, so you can run `/sample-demo-cu` scenarios end to end."
+
+Keep this announcement explicit and user-facing.
+
 ## Ground truth (repo-specific)
 
 - Local-direct is the recommended mode for CU iteration (`AGENT_MODE=local-direct`).
@@ -43,6 +52,8 @@ Prefer this skill over ad hoc instructions because it enforces permission gates 
 - Agent runtime model deployment is read from:
   - `AZURE_AI_MODEL_DEPLOYMENT_NAME` (preferred when present)
   - fallback: `FOUNDRY_MODEL`
+- A valid Foundry model deployment is mandatory for demo success because the
+  local-direct agent cannot answer chat requests without it.
 - CU KB setup flag in this repo is:
   - `./scripts/setup-knowledge-base.sh --cu-demo`
 - CU analyzers created by scripts:
@@ -108,6 +119,45 @@ Before step 1, give a brief CU intro using README-aligned language:
 "Azure Content Understanding (CU) is a multimodal understanding capability for extracting structure and meaning from diverse formats and layouts. CU can also process audio/video, but this demo focuses on document modalities. This fork uses CU to improve upload parsing, classification/routing, and structured extraction quality in the local-direct flow."
 
 Keep this intro to 2-3 sentences max, then continue with the checks.
+
+Immediately after the intro, announce the stage roadmap below before running Step 0.
+
+## Stage roadmap and transition announcements (required)
+
+Do not change step numbering or order. Group the existing steps into stages and
+announce stage transitions as execution progresses.
+
+Stage A - Preflight and Azure readiness (Steps 0-3)
+- Step 0 result: required CLIs (`az`, `azd`) verified or install guidance provided.
+- Step 1 result: active Azure subscription confirmed for setup actions.
+- Step 2 result: CU resource selected, CU Studio settings validated, CU endpoint resolution prepared.
+- Step 3 result: CU prerequisite completion confirmed before local/bootstrap work.
+
+Stage B - Local and Foundry configuration baseline (Steps 4-7)
+- Step 4 result: local dependencies and writable `.env` baseline prepared.
+- Step 5 result: `AZURE_CONTENTUNDERSTANDING_ENDPOINT` set for CU upload parsing.
+- Step 6 result: `FOUNDRY_PROJECT_ENDPOINT` confirmed and persisted in both `.env` and `azd env`.
+- Step 7 result: model deployment selected and persisted for runtime chat calls.
+
+Stage C - Demo data paths and CU assets (Steps 8-10)
+- Step 8 result: CU demo KB setup complete with minimal/standard MCP paths configured.
+- Step 9 result: both ingestion indexers validated for readiness.
+- Step 10 result: CU analyzers created for work-order extraction and classify+route mode.
+
+Stage D - Runtime validation and demo handoff (Steps 11-12)
+- Step 11 result: local-direct services started.
+- Step 12 result: health/features validated and local URLs shared for quick verification.
+
+Required announcement behavior:
+- At roadmap time: announce all stages once, briefly.
+- When entering a new stage: explicitly announce the stage name and covered step range.
+- At each step: include the expected resource/result for that step before asking for confirmation.
+- Keep announcements concise, but never skip stage-change announcements.
+
+Recommended transition message template:
+1. `# Entering <Stage Name> (Steps X-Y)`
+2. `In this stage we will produce: <stage outcomes>.`
+3. Continue with the step-level why-first explanation and confirmation gate.
 
 ### 0) CLI preflight: `az` and `azd` (required)
 
@@ -359,6 +409,10 @@ Why this step is needed (must explain before asking):
 - Without selecting a deployment available in the same Foundry project,
   local-direct startup may run but chat calls can fail at runtime.
 
+Mandatory success rule for this demo:
+- At least one usable Foundry model deployment must exist before continuing.
+- If no deployment exists, do not proceed to Step 8-12 until one is created and confirmed.
+
 Discovery flow (required):
 1. Parse account + project from `FOUNDRY_PROJECT_ENDPOINT`:
 
@@ -395,6 +449,54 @@ az rest --method get \
 Then ask the user to choose deployment name using value-confirmation style:
 - Show detected deployment names first.
 - Ask: "Use one of these deployment names, or provide another?"
+
+If no deployments are found, use a gated recovery path:
+1. Explain that model provisioning is required for agent responses and overall demo success.
+2. Ask for confirmation to provision a deployment before continuing.
+3. Offer these options:
+  - Provision/update via `azd up` (when project templates include model deployment provisioning).
+  - Provision the model deployment directly with Azure CLI (`az`) as the preferred no-portal path.
+  - Use Foundry portal only as a fallback if CLI provisioning is unavailable in the current environment.
+4. Re-run deployment discovery and only continue after a non-empty deployment list is confirmed.
+
+Azure CLI-first provisioning guideline (preferred):
+- Prefer `az` commands so users can complete setup without switching to the web portal.
+- Before creation, discover candidate models for the target account/region:
+
+```bash
+az cognitiveservices account list-models \
+  --name <foundry-account> \
+  --resource-group <foundry-rg> \
+  -o table
+```
+
+- Create a deployment with `az` (example template):
+
+```bash
+az cognitiveservices account deployment create \
+  --name <foundry-account> \
+  --resource-group <foundry-rg> \
+  --deployment-name <deployment-name> \
+  --model-format OpenAI \
+  --model-name <model-name> \
+  --model-version <model-version> \
+  --sku-name Standard \
+  --sku-capacity <capacity>
+```
+
+- Verify deployment creation before continuing:
+
+```bash
+az cognitiveservices account deployment list \
+  --name <foundry-account> \
+  --resource-group <foundry-rg> \
+  -o table
+```
+
+If the `az cognitiveservices` deployment command set is unavailable due to CLI version/profile differences:
+- Upgrade Azure CLI and retry.
+- Use `az rest` as fallback for deployment create/list.
+- Only if CLI fallback is blocked, use portal-based creation.
 
 Persist selected model deployment to both locations:
 
