@@ -31,6 +31,7 @@ behaves the same as ``main``:
 
 import asyncio
 import base64
+import hashlib
 import os
 import json
 import logging
@@ -92,7 +93,31 @@ _CU_FOUNDRY_IQ_ENABLED = bool(_FOUNDRY_IQ_MINIMAL_MCP_URL and _FOUNDRY_IQ_STANDA
 _SEARCH_TOKEN_SCOPE = "https://search.azure.com/.default"
 
 
-def _load_system_prompt(cu_active: bool = False) -> str:
+def _cu_demo_file_guidance(cu_mode: str) -> str:
+    """Return the file-suggestion block matching the active cu_mode.
+
+    Without this, the static prompt would list both Basic and
+    Classify & Analyze suggestions and the LLM would pick whichever
+    appeared first — even when the user is in the other mode.
+    """
+    if cu_mode == "work_order":
+        return (
+            "**Currently active CU mode: Classify & Analyze Work Order** — recommend this file:\n\n"
+            "- `content-understanding/demo_files/work_order_for_custom_analyzer.pdf` — PDF work order with a `Dispatch Log → Route →` re-routing instruction. The custom analyzer follows the routing and returns the re-routed technician (J. Martinez).\n\n"
+            "**After they upload it and you extract the fields, also tell them:** for a side-by-side comparison, they can start a New Chat, switch to **Basic CU (Parse: prebuilt-layout)** mode, and upload the **same `work_order_for_custom_analyzer.pdf`**. Basic CU will return the original assignee printed at the top of the form (John Smith) instead of the re-routed technician. Be explicit that they must upload the **same PDF** under both modes — uploading the `.docx` under Basic CU will not reproduce this comparison because the docx has different content."
+        )
+    if cu_mode == "basic":
+        return (
+            "**Currently active CU mode: Basic CU (Parse: prebuilt-layout)** — recommend this file:\n\n"
+            "- `content-understanding/demo_files/work_order_for_prebuilt_layout.docx` — Word work order. Basic CU enables the LLM to read `.docx` content that the LLM cannot read on its own."
+        )
+    return (
+        "- `content-understanding/demo_files/work_order_for_prebuilt_layout.docx` (Basic CU demo)\n"
+        "- `content-understanding/demo_files/work_order_for_custom_analyzer.pdf` (Classify & Analyze demo)"
+    )
+
+
+def _load_system_prompt(cu_active: bool = False, cu_mode: str = "none") -> str:
     """Load the system prompt.
 
     The base prompt is always returned. When ``cu_active`` is true, the
@@ -105,7 +130,10 @@ def _load_system_prompt(cu_active: bool = False) -> str:
     else:
         prompt = "You are Fibey, a helpful AI assistant."
     if cu_active and SYSTEM_PROMPT_CU_PATH.exists():
-        prompt = prompt.rstrip() + "\n\n" + SYSTEM_PROMPT_CU_PATH.read_text()
+        cu_prompt = SYSTEM_PROMPT_CU_PATH.read_text().replace(
+            "{{CU_DEMO_FILE_GUIDANCE}}", _cu_demo_file_guidance(cu_mode)
+        )
+        prompt = prompt.rstrip() + "\n\n" + cu_prompt
     return prompt
 
 
@@ -622,7 +650,7 @@ def create_agent(cu_mode: str = "none", foundry_iq_mode: str | None = None) -> t
     agent = Agent(
         client=client,
         name="fibey",
-        instructions=_load_system_prompt(cu_active=cu_active),
+        instructions=_load_system_prompt(cu_active=cu_active, cu_mode=cu_mode),
         tools=tools,
         context_providers=context_providers if context_providers else None,
     )
@@ -695,9 +723,12 @@ async def run_agent(
                 file_bytes = base64.b64decode(data_url)
 
             if cu_mode != "none" and _CU_ENDPOINT:
-                # CU mode: namespace filename so the same file can be re-analyzed
-                # under a different mode without hitting the session duplicate check.
-                namespaced_filename = f"{filename}:{cu_mode}"
+                # CU mode: namespace filename so (a) the same file can be re-analyzed
+                # under a different mode without hitting the session duplicate check, and
+                # (b) a regenerated file with the same name but new bytes is treated as
+                # a fresh upload instead of returning the cached old extraction.
+                content_hash = hashlib.sha1(file_bytes).hexdigest()[:8]
+                namespaced_filename = f"{filename}:{cu_mode}:{content_hash}"
                 input_content.append(
                     Content.from_data(
                         file_bytes,
