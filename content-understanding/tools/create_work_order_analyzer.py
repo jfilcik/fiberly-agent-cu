@@ -10,7 +10,7 @@ Usage:
 
     Optionally analyze a file afterwards:
     uv run python content-understanding/tools/create_work_order_analyzer.py \
-        --analyze content-understanding/demo_files/work_order_fiber_splice.pdf
+        --analyze content-understanding/demo_files/work_order_for_custom_analyzer.pdf
 
 Environment (loaded from .env at repo root):
     AZURE_CONTENTUNDERSTANDING_ENDPOINT  — required
@@ -53,8 +53,14 @@ FIELD_SCHEMA = ContentFieldSchema(
     fields={
         "title": ContentFieldDefinition(
             type=ContentFieldType.STRING,
-            method=GenerationMethod.EXTRACT,
-            description="The work order title as shown in the document header.",
+            method=GenerationMethod.GENERATE,
+            description=(
+                "The work order title as shown in the document header — typically "
+                "the most prominent heading at the top of the document (a bold or "
+                "large-font line describing the job, often combining the work type "
+                "and a site name). Return the heading text verbatim, without "
+                "surrounding markdown."
+            ),
         ),
         "description": ContentFieldDefinition(
             type=ContentFieldType.STRING,
@@ -78,44 +84,51 @@ FIELD_SCHEMA = ContentFieldSchema(
         ),
         "assigned_technician": ContentFieldDefinition(
             type=ContentFieldType.STRING,
-            method=GenerationMethod.EXTRACT,
+            method=GenerationMethod.GENERATE,
             description=(
-                "The name of the field technician actively dispatched/routed to perform "
-                "this work order on-site. This is the person currently accountable for "
-                "executing the job, NOT a default contact, supervisor, or NOC representative. "
-                "\n\n"
-                "EXTRACTION PRIORITY (highest to lowest):\n"
-                "1. HIGHEST PRIORITY: Look in any 'Dispatch Log', 'Dispatch', 'Routing', or "
-                "'Assignment' section/row/entry. Find a routing arrow ('->', '→', '>>') or "
-                "keyword ('Route', 'Routed to', 'Assigned to', 'Dispatched to', 'Tech:', "
-                "'Assignee:') followed by a person's name. This is the assigned technician.\n"
-                "2. If no dispatch log exists, look for an explicit 'Assigned Technician', "
-                "'Field Tech (Assigned)', or 'On-Site Technician' field with a non-empty value.\n"
-                "3. Only as a LAST RESORT (no dispatch info anywhere), use a generic "
-                "'Field Technician' header field.\n"
+                "The dispatched field technician for this work order — the person "
+                "currently routed to perform the job on-site.\n"
                 "\n"
-                "STRICT EXCLUSIONS - never return these as assigned_technician:\n"
-                "- The dispatcher (person who sent/created the dispatch, e.g. 'Dispatcher: X')\n"
-                "- The on-site building/facility contact (e.g. 'Site Contact', 'Contact:', "
-                "'Building Facilities', 'Facility Manager')\n"
-                "- A network/operations supervisor listed in 'Site Access', 'Contact', or "
-                "header metadata (e.g. 'Network Operations Supervisor')\n"
-                "- Anyone with a job title indicating supervisory/management role rather than "
-                "field execution\n"
+                "PRIMARY RULE: Scan the entire document for any of these routing "
+                "patterns and return the name that follows. This is decisive — do not "
+                "return null when one of these patterns is present:\n"
+                "  - 'Route → <name>'  (or 'Route -> <name>', 'Route >> <name>')\n"
+                "  - 'Routed to <name>'\n"
+                "  - 'Assigned to <name>'\n"
+                "  - 'Dispatched to <name>'\n"
+                "  - 'Tech: <name>' or 'Assignee: <name>'\n"
+                "The routing text may appear inline, inside a table cell, or embedded "
+                "in a pipe-delimited string alongside other dispatch metadata (NOC ref, "
+                "dispatcher, status). Format does not matter.\n"
                 "\n"
-                "TIE-BREAKER: If a name appears in BOTH a header field (like 'Field Technician') "
-                "AND in a 'Site Access'/'Contact' section as a supervisor or facility contact, "
-                "that name is almost certainly NOT the assigned technician. The real assigned "
-                "technician will be in the dispatch/routing log.\n"
+                "WORKED EXAMPLE (generic): if a row contains pipe-delimited "
+                "dispatch metadata such as a timestamp, a reference id, a "
+                "'Dispatcher: <name>' field, and a 'Route → <name>' field, return "
+                "the name from the 'Route →' field — NOT the dispatcher's name.\n"
                 "\n"
-                "FORMAT: Return the name exactly as written (e.g. 'J. Martinez'), without "
-                "titles, honorifics, or role descriptions."
+                "FALLBACK (only when no routing pattern above exists anywhere): an "
+                "explicit 'Assigned Technician', 'Field Tech (Assigned)', or "
+                "'On-Site Technician' field with a non-empty value. As a last resort, "
+                "a generic 'Field Technician' header field.\n"
+                "\n"
+                "NEVER return: the dispatcher, a site/building/facility contact, or a "
+                "supervisor named in a 'Site Access' / 'Contact' / header metadata "
+                "section (e.g. someone labeled 'Network Operations Supervisor' or "
+                "'Building Manager').\n"
+                "\n"
+                "FORMAT: Return the name exactly as written in the source document, "
+                "without titles or honorifics."
             ),
         ),
         "location": ContentFieldDefinition(
             type=ContentFieldType.STRING,
-            method=GenerationMethod.EXTRACT,
-            description="The physical job site address or location identifier.",
+            method=GenerationMethod.GENERATE,
+            description=(
+                "The physical job site address or location identifier where the "
+                "technician must perform the work. Often found in a header table "
+                "under a 'Location' column or a 'Site Address' / 'Job Site' label. "
+                "Return the address as written."
+            ),
         ),
         "due_date": ContentFieldDefinition(
             type=ContentFieldType.STRING,

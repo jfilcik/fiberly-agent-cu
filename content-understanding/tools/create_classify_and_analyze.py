@@ -25,11 +25,11 @@ This enables the demo progression:
 
   # Analyze a file with the classifier (skip create, use existing):
   uv run python content-understanding/tools/create_classify_and_analyze.py \\
-      --analyze-only content-understanding/demo_files/work_order_fiber_splice.pdf
+      --analyze-only content-understanding/demo_files/work_order_for_custom_analyzer.pdf
 
   # Create classifier AND analyze a file:
   uv run python content-understanding/tools/create_classify_and_analyze.py \\
-      --analyze content-understanding/demo_files/work_order_fiber_splice.pdf
+      --analyze content-understanding/demo_files/work_order_for_custom_analyzer.pdf
 
 Environment (loaded from .env at repo root):
     AZURE_CONTENTUNDERSTANDING_ENDPOINT  — required
@@ -130,26 +130,28 @@ def create_classifier(client: ContentUnderstandingClient) -> None:
     categories = {
         "work_order": ContentCategoryDefinition(
             description=(
-                "A field operations work order document issued to a technician for a specific job. "
-                "Contains a job title, assigned technician name in a sign-off table, job site address, "
-                "due date, parts list with part IDs (e.g. FIB-XXX), status (open/in_progress), "
-                "and priority (critical/high/medium/low). Typically 1-2 pages with a professional "
-                "header, checklist, and signature block."
+                "A field work order: a document that dispatches a technician to "
+                "perform an on-site job (typically fiber/network field operations "
+                "such as splicing, restoration, OTDR testing, or cabinet work). "
+                "Identifying signals include a job title, a status label "
+                "(open/in_progress/completed), a priority label (critical/high/"
+                "medium/low), a dispatch or routing entry naming a technician, a "
+                "parts/materials table, and a site address with a due date."
             ),
             analyzer_id=WORK_ORDER_ANALYZER_ID,  # Route to structured field extractor
         ),
         "other": ContentCategoryDefinition(
             description=(
-                "Any document that is NOT a field operations work order. This includes training "
-                "certificates, inspection reports, invoices, packing slips, incident reports, "
-                "safety manuals, NOC tickets, or any general business document."
+                "Any document that is NOT a field work order. Examples: training "
+                "certificates, inspection reports, invoices, packing slips, "
+                "brochures, policy or safety manuals, and general correspondence."
             ),
             analyzer_id="prebuilt-layout",  # Fall back to general markdown extraction
         ),
     }
 
     config = ContentAnalyzerConfig(
-        enable_segment=False,  # Each file is one document — no multi-doc segmentation needed
+        enable_segment=False,  # Classify the document as a single unit
         content_categories=categories,
     )
 
