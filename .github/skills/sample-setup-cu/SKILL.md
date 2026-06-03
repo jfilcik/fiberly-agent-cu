@@ -161,6 +161,33 @@ Suggested checks:
 az cognitiveservices account list --output table
 ```
 
+Important (required): ask the user for the **CU resource selected in CU Studio**.
+- Users will often provide only a resource name, not a full endpoint.
+- Tell the user you will use that resource to resolve the full
+  `AZURE_CONTENTUNDERSTANDING_ENDPOINT` later in Step 5.
+- Keep this selected resource in context and do not lose it before `.env` updates.
+
+Use this value-confirmation flow:
+1. Ask for CU resource name (and optional resource group).
+2. Resolve endpoint from resource name:
+
+```bash
+az cognitiveservices account show \
+  --name <cu-resource-name> \
+  --resource-group <optional-rg> \
+  --query properties.endpoint -o tsv
+```
+
+If RG is unknown, discover candidates first and ask the user to choose:
+
+```bash
+az cognitiveservices account list \
+  --query "[?name=='<cu-resource-name>'].{name:name,resourceGroup:resourceGroup,endpoint:properties.endpoint}" \
+  -o table
+```
+
+Then ask the user to confirm the resolved endpoint before proceeding.
+
 Do not only paste links. First summarize the CU prerequisites from the official source in a short checklist, then provide links.
 
 Use this prerequisite summary (concise but explicit):
@@ -234,6 +261,10 @@ Ask permission before editing:
 Prefer asking this via `vscode_askQuestions`.
 
 If the user approves, update `.env`. If missing, ask for endpoint value.
+
+If Step 2 collected CU resource name, do **not** ask the user to retype endpoint.
+Resolve endpoint from that selected CU resource and confirm the resolved value.
+Only ask for manual endpoint input when resource-based resolution fails.
 
 Optional companion variable when needed for setup tooling:
 - `AZURE_CONTENTUNDERSTANDING_KEY`
@@ -310,6 +341,19 @@ Ask permission to run:
 
 `./scripts/setup-knowledge-base.sh --cu-demo`
 
+Prefer explicit env injection when running this script (recommended default):
+
+```bash
+AZURE_RESOURCE_GROUP="<rg>" \
+AZURE_SUBSCRIPTION_ID="<subscription-id>" \
+FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>" \
+./scripts/setup-knowledge-base.sh --cu-demo
+```
+
+Reason:
+- avoids shell/session drift between `azd env` values and process environment.
+- prevents false failures like missing `AZURE_RESOURCE_GROUP` when `azd env` has it.
+
 Prefer asking this via `vscode_askQuestions`.
 
 Explain why before running:
@@ -345,11 +389,15 @@ Suggested command pattern:
 ```bash
 SEARCH_ENDPOINT="https://<search>.search.windows.net"
 curl -s "${SEARCH_ENDPOINT}/indexers/fibey-iq-minimal-ks-indexer/status?api-version=2024-07-01" \
-  -H "api-key: $AZURE_SEARCH_ADMIN_KEY" | python3 -m json.tool
+  -H "api-key: $AZURE_SEARCH_ADMIN_KEY"
 
 curl -s "${SEARCH_ENDPOINT}/indexers/fibey-iq-standard-ks-indexer/status?api-version=2024-07-01" \
-  -H "api-key: $AZURE_SEARCH_ADMIN_KEY" | python3 -m json.tool
+  -H "api-key: $AZURE_SEARCH_ADMIN_KEY"
 ```
+
+Then parse only required fields (`name`, `status`, `lastResult.status`,
+`lastResult.errorMessage`) with a tolerant parser. If strict JSON parsing fails,
+show raw response preview and continue diagnosis.
 
 Interpretation guidance:
 - `lastResult.status == success` is ready.
@@ -403,6 +451,12 @@ Expected:
 - `/api/features` shows:
   - `content_understanding: true` when CU endpoint is set
   - `foundry_iq_cu_demo: true` when both Foundry IQ MCP URLs are set
+
+At the end of setup, always print clickable local URLs for quick validation:
+- UI: `http://localhost:5173`
+- Gateway health: `http://localhost:8080/api/health`
+- Gateway features: `http://localhost:8080/api/features`
+- Status dashboard: `http://localhost:8003`
 
 ## Demo scenarios to suggest after setup
 

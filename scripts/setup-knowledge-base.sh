@@ -38,22 +38,22 @@ ensure_env_file() {
 resolve_cu_key_from_endpoint() {
   local endpoint="$1"
   local normalized_endpoint
-  local account_line
+  local account_json
   local account_name
   local account_rg
   local resolved_key
 
   normalized_endpoint="${endpoint%/}/"
-  account_line=$(az cognitiveservices account list \
-    --query "[?properties.endpoint=='${normalized_endpoint}'] | [0] | [name,resourceGroup]" \
-    -o tsv 2>/dev/null || true)
+  account_json=$(az cognitiveservices account list \
+    --query "[?properties.endpoint=='${normalized_endpoint}'] | [0] | {name:name,resourceGroup:resourceGroup}" \
+    -o json 2>/dev/null || true)
 
-  if [ -z "$account_line" ]; then
+  if [ -z "$account_json" ] || [ "$account_json" = "null" ]; then
     return 1
   fi
 
-  account_name=$(printf "%s" "$account_line" | awk '{print $1}')
-  account_rg=$(printf "%s" "$account_line" | awk '{print $2}')
+  account_name=$(printf "%s" "$account_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("name", ""))' 2>/dev/null || true)
+  account_rg=$(printf "%s" "$account_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("resourceGroup", ""))' 2>/dev/null || true)
 
   if [ -z "$account_name" ] || [ -z "$account_rg" ]; then
     return 1
@@ -69,6 +69,95 @@ resolve_cu_key_from_endpoint() {
   fi
 
   printf "%s" "$resolved_key"
+}
+
+delete_search_resource_if_exists() {
+  local resource_type="$1"
+  local resource_name="$2"
+  local api_version="$3"
+  local delete_url="${SEARCH_ENDPOINT}/${resource_type}/${resource_name}?api-version=${api_version}"
+  local status_code
+
+  status_code=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE "$delete_url" \
+    -H "api-key: ${SEARCH_ADMIN_KEY}")
+
+  case "$status_code" in
+    200|202|204)
+      echo "  - Deleted ${resource_type}/${resource_name}"
+      ;;
+    404)
+      echo "  - ${resource_type}/${resource_name} not found (skip)"
+      ;;
+    *)
+      echo "  - Failed deleting ${resource_type}/${resource_name} (HTTP ${status_code})"
+      exit 1
+      ;;
+  esac
+}
+
+delete_foundry_connection_if_exists() {
+  local connection_name="$1"
+  local delete_url="https://management.azure.com${FOUNDRY_PROJECT_RESOURCE_ID}/connections/${connection_name}?api-version=${FOUNDRY_CONNECTION_API_VERSION}"
+  local status_code
+
+  status_code=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE "$delete_url" \
+    -H "Authorization: Bearer ${MANAGEMENT_TOKEN}")
+
+  case "$status_code" in
+    200|202|204)
+      echo "  - Deleted Foundry connection ${connection_name}"
+      ;;
+    404)
+      echo "  - Foundry connection ${connection_name} not found (skip)"
+      ;;
+    *)
+      echo "  - Failed deleting Foundry connection ${connection_name} (HTTP ${status_code})"
+      exit 1
+      ;;
+  esac
+}
+
+cleanup_cu_demo_resources() {
+  local minimal_ks_name="$1"
+  local standard_ks_name="$2"
+  local minimal_kb_name="$3"
+  local standard_kb_name="$4"
+  local minimal_connection_name="$5"
+  local standard_connection_name="$6"
+
+  local minimal_ds_name="${minimal_ks_name}-datasource"
+  local minimal_indexer_name="${minimal_ks_name}-indexer"
+  local minimal_skillset_name="${minimal_ks_name}-skillset"
+  local minimal_index_name="${minimal_ks_name}-index"
+
+  local standard_ds_name="${standard_ks_name}-datasource"
+  local standard_indexer_name="${standard_ks_name}-indexer"
+  local standard_skillset_name="${standard_ks_name}-skillset"
+  local standard_index_name="${standard_ks_name}-index"
+
+  echo ""
+  echo "=== Cleaning existing CU demo resources (if any) ==="
+
+  delete_foundry_connection_if_exists "$minimal_connection_name"
+  delete_foundry_connection_if_exists "$standard_connection_name"
+
+  delete_search_resource_if_exists "knowledgebases" "$minimal_kb_name" "$KNOWLEDGE_API_VERSION"
+  delete_search_resource_if_exists "knowledgebases" "$standard_kb_name" "$KNOWLEDGE_API_VERSION"
+
+  delete_search_resource_if_exists "indexers" "$minimal_indexer_name" "$SEARCH_API_VERSION"
+  delete_search_resource_if_exists "indexers" "$standard_indexer_name" "$SEARCH_API_VERSION"
+
+  delete_search_resource_if_exists "skillsets" "$minimal_skillset_name" "$SEARCH_API_VERSION"
+  delete_search_resource_if_exists "skillsets" "$standard_skillset_name" "$SEARCH_API_VERSION"
+
+  delete_search_resource_if_exists "indexes" "$minimal_index_name" "$SEARCH_API_VERSION"
+  delete_search_resource_if_exists "indexes" "$standard_index_name" "$SEARCH_API_VERSION"
+
+  delete_search_resource_if_exists "datasources" "$minimal_ds_name" "$SEARCH_API_VERSION"
+  delete_search_resource_if_exists "datasources" "$standard_ds_name" "$SEARCH_API_VERSION"
+
+  delete_search_resource_if_exists "knowledgesources" "$minimal_ks_name" "$KNOWLEDGE_API_VERSION"
+  delete_search_resource_if_exists "knowledgesources" "$standard_ks_name" "$KNOWLEDGE_API_VERSION"
 }
 
 USE_CU_DEMO=false
@@ -251,6 +340,14 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
     echo "ERROR: No CU demo docs found in $CU_DOCS_DIR"
     exit 1
   fi
+
+  cleanup_cu_demo_resources \
+    "$MINIMAL_KS_NAME" \
+    "$STANDARD_KS_NAME" \
+    "$MINIMAL_KB_NAME" \
+    "$STANDARD_KB_NAME" \
+    "$MINIMAL_CONNECTION_NAME" \
+    "$STANDARD_CONNECTION_NAME"
 
   echo "=== Creating blob container: $CU_CONTAINER_NAME ==="
   az storage container create \
