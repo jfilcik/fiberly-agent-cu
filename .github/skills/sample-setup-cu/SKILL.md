@@ -9,7 +9,12 @@ tags: ['azure', 'content-understanding', 'foundry-iq', 'local-direct', 'setup', 
 You are the setup specialist for enabling **Content Understanding (CU)** demo functionality in this repository using **AGENT_MODE=local-direct**.
 
 Your goal is to produce a safe, explicit, user-approved setup flow that covers:
+- Azure CLI (`az`) and Azure Developer CLI (`azd`) availability checks
+- installation guidance when `az`/`azd` is missing
+- Azure subscription and active subscription context checks
+- CU resource readiness checks
 - CU prerequisites in Azure
+- guided CU prerequisite completion with direct CU Studio settings link
 - `.env` updates for CU and Foundry IQ CU demo endpoints
 - optional Azure provisioning via `azd up`
 - CU demo KB ingestion setup (`--cu-demo`)
@@ -50,9 +55,125 @@ You must ask and wait for user confirmation before each action group:
 4. Create/recreate CU analyzers.
 5. Start local services in local-direct mode.
 
+When available, use the ask-user tool (`vscode_askQuestions`) for these
+confirmations instead of plain text prompts.
+
+Use `vscode_askQuestions` for all major Yes/No checkpoints in this skill,
+including subscription selection, CU prerequisites completion, `.env` edits,
+`azd up`, KB setup, analyzer creation, and local startup.
+
+Recommended options for each confirmation:
+- `Yes, continue`
+- `No, stop here`
+
 ## Step-by-step workflow
 
-### 1) Local bootstrap (required)
+Before step 1, give a brief CU intro using README-aligned language:
+
+"Azure Content Understanding (CU) is a multimodal understanding capability for extracting structure and meaning from diverse formats and layouts. CU can also process audio/video, but this demo focuses on document modalities. This fork uses CU to improve upload parsing, classification/routing, and structured extraction quality in the local-direct flow."
+
+Keep this intro to 2-3 sentences max, then continue with the checks.
+
+### 0) CLI preflight: `az` and `azd` (required)
+
+Before Azure checks, verify required CLIs are available:
+
+```bash
+command -v az >/dev/null && az version || echo "az missing"
+command -v azd >/dev/null && azd version || echo "azd missing"
+```
+
+If either CLI is missing, stop and provide installation guidance first.
+
+macOS install guidance:
+- Azure CLI (`az`): `brew update && brew install azure-cli`
+- Azure Developer CLI (`azd`): `brew tap azure/azd && brew install azd`
+
+Verify after install:
+
+```bash
+az version
+azd version
+```
+
+Only continue to Azure subscription/CU setup after both commands succeed.
+
+### 1) Azure subscription check (required)
+
+Before any CU setup, verify the user has an active Azure subscription and that
+the intended subscription is selected.
+
+Use read-only checks:
+
+```bash
+az account show --output table
+az account list --output table
+```
+
+Ask:
+
+"Do you want to use the currently active subscription for CU setup?"
+
+Prefer asking this via `vscode_askQuestions`.
+
+If no active subscription is available, stop and instruct the user to:
+- sign in: `az login`
+- create or enable a subscription:
+  https://azure.microsoft.com/pricing/purchase-options/azure-account
+
+### 2) CU resource + CU Studio settings readiness (required)
+
+Verify CU-related resources exist in the selected subscription.
+
+Suggested checks:
+
+```bash
+az cognitiveservices account list --output table
+```
+
+Do not only paste links. First summarize the CU prerequisites from the official source in a short checklist, then provide links.
+
+Use this prerequisite summary (concise but explicit):
+- Active Azure subscription.
+- A Microsoft Foundry resource in a CU-supported region.
+- Sufficient RBAC to create/configure resources (Contributor or higher on target subscription/resource group).
+- CU Studio settings configured to connect the target Foundry resource.
+- Required model defaults configured; keep "Enable autodeployment for required models" on.
+
+Then provide links in this order:
+
+1. Prerequisites source:
+  https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-rest-api?tabs=portal%2Cdocument&pivots=programming-language-rest#prerequisites
+2. CU Studio settings (direct):
+  https://contentunderstanding.ai.azure.com/settings
+
+Tell the user what to verify in CU Studio settings:
+- Add/select the Foundry resource used for CU.
+- Save settings.
+- Keep "Enable autodeployment for required models" enabled.
+
+Use this check question:
+
+"Can you confirm CU Studio settings are configured for your target Foundry resource?"
+
+Prefer asking this via `vscode_askQuestions`.
+
+If not done, pause and ask the user to complete this before continuing.
+
+### 3) CU prerequisites completion check (required)
+
+Before asking for confirmation, restate the short prerequisite checklist above so
+the user can verify each item without opening multiple pages.
+
+Use this exact check question:
+
+"Have you completed the CU prerequisites from the Microsoft Learn quickstart (resource, access, and permissions)?"
+
+Prefer asking this via `vscode_askQuestions`.
+
+If not done, pause and ask the user to finish prerequisites first.
+
+### 4) Local bootstrap (required)
 
 Before CU-specific setup, ensure local dependencies and env file are prepared.
 
@@ -63,25 +184,15 @@ Ask permission to run:
 cp .env.example .env
 ```
 
+Prefer asking this via `vscode_askQuestions`.
+
 Explain why:
 - `./scripts/setup.sh` installs Python and UI dependencies used by local-direct demo runs.
 - `cp .env.example .env` ensures there is a writable local env file for CU endpoint and MCP URL updates.
 
 If `.env` already exists, keep the existing file and only update required keys.
 
-### 2) CU prerequisites check (required)
-
-Ask the user to complete Azure CU prerequisites first using the official document:
-
-- https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-rest-api?tabs=portal%2Cdocument&pivots=programming-language-rest#prerequisites
-
-Use this exact check question:
-
-"Have you completed the CU prerequisites from the Microsoft Learn quickstart (resource, access, and permissions)?"
-
-If not done, pause and ask the user to finish prerequisites first.
-
-### 3) CU endpoint in `.env`
+### 5) CU endpoint in `.env`
 
 Explain:
 - `AZURE_CONTENTUNDERSTANDING_ENDPOINT` enables CU upload parsing in the chat flow and reveals CU UI controls.
@@ -90,12 +201,14 @@ Ask permission before editing:
 
 "Do you want me to update `.env` with your `AZURE_CONTENTUNDERSTANDING_ENDPOINT` now?"
 
+Prefer asking this via `vscode_askQuestions`.
+
 If the user approves, update `.env`. If missing, ask for endpoint value.
 
 Optional companion variable when needed for setup tooling:
 - `AZURE_CONTENTUNDERSTANDING_KEY`
 
-### 4) Foundry IQ endpoint readiness check
+### 6) Foundry IQ endpoint readiness check
 
 Ask:
 
@@ -105,13 +218,17 @@ If not configured, ask:
 
 "Do you want me to run `azd up` to provision/update the required Azure resources first?"
 
+Prefer asking this via `vscode_askQuestions`.
+
 If approved, run `azd up` and continue after success.
 
-### 5) Run CU KB setup (`--cu-demo`) and explain why
+### 7) Run CU KB setup (`--cu-demo`) and explain why
 
 Ask permission to run:
 
 `./scripts/setup-knowledge-base.sh --cu-demo`
+
+Prefer asking this via `vscode_askQuestions`.
 
 Explain why before running:
 - It uploads both base Foundry IQ docs and CU demo docs.
@@ -124,7 +241,7 @@ After run, ensure these are configured in environment:
 - `FOUNDRY_IQ_MINIMAL_MCP_URL`
 - `FOUNDRY_IQ_STANDARD_MCP_URL`
 
-### 6) Verify two ingestion indexes are up
+### 8) Verify two ingestion indexes are up
 
 Check indexer states for both knowledge sources:
 - `fibey-iq-minimal-ks-indexer`
@@ -145,7 +262,7 @@ Interpretation guidance:
 - `lastResult.status == success` is ready.
 - standard mode can take longer due to CU extraction.
 
-### 7) Create CU analyzers and explain demo impact
+### 9) Create CU analyzers and explain demo impact
 
 Ask permission to run analyzer creation:
 
@@ -157,14 +274,18 @@ uv run python content-understanding/tools/create_classify_and_analyze.py \
   --analyze content-understanding/demo_files/work_order_fiber_splice.pdf
 ```
 
+Prefer asking this via `vscode_askQuestions`.
+
 Explain what this enables in demo:
 - `cu_demo_work_order`: extracts structured work-order fields aligned to Fibey schema.
 - `cu_demo_classify_and_analyze`: classifies uploads and routes work orders to structured extraction, other docs to layout extraction.
 - This powers the CU mode comparison in the UI (`None`, `Basic CU`, `Classify & Analyze Work Order`).
 
-### 8) Start local-direct stack with permission
+### 10) Start local-direct stack with permission
 
 Ask permission to start all required local services.
+
+Prefer asking this via `vscode_askQuestions`.
 
 Start services (separate terminals/processes):
 
@@ -175,7 +296,7 @@ cd services/status-dashboard/public && python -m http.server 8003
 AGENT_MODE=local-direct ./scripts/start-dev.sh
 ```
 
-### 9) Health and feature checks
+### 11) Health and feature checks
 
 Run and validate:
 
