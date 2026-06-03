@@ -1,0 +1,19 @@
+{
+  "title": "Fiber Splice Restoration - Springfield Business Park",
+  "description": "Restore 24-count feeder splice after cabinet damage and verify light levels for affected tenants. A utility vehicle struck the fiber cabinet at the northwest corner of the building parking structure, shearing the 24-count SM feeder at approximately 3 m from the splice enclosure. Fourteen tenant circuits are currently down. Technician must expose the damaged section, re-splice all affected fibers, reseal the enclosure, and confirm restore of signal for each affected circuit before closure.",
+  "status": "open",
+  "priority": "critical",
+  "assigned_technician": "J. Martinez",
+  "location": "742 Evergreen Terrace, Springfield, WA 99999",
+  "parts_needed": [
+    {
+      "part_id": "FIB-003",
+      "quantity": 2
+    },
+    {
+      "part_id": "FIB-012",
+      "quantity": 1
+    }
+  ],
+  "due_date": "2026-05-20T17:00:00Z"
+}

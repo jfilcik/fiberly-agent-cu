@@ -1,0 +1,23 @@
+{
+  "title": "Replace fiber feed motor.",
+  "description": "Motor wan't start.\nOver heat alarm tripped.\nCheck wiring + replace motor.",
+  "status": "open",
+  "priority": "high",
+  "assigned_technician": "J. Martinez",
+  "location": "Line 3 - Fiber Feed Station",
+  "parts_needed": [
+    {
+      "part_id": "FIB-014",
+      "quantity": 1
+    },
+    {
+      "part_id": "FIB-027",
+      "quantity": 2
+    },
+    {
+      "part_id": "FIB-033",
+      "quantity": 1
+    }
+  ],
+  "due_date": "2026-05-20T17:00:00Z"
+}
