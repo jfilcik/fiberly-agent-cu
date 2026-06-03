@@ -144,6 +144,10 @@ cleanup_cu_demo_resources() {
   delete_search_resource_if_exists "knowledgebases" "$minimal_kb_name" "$KNOWLEDGE_API_VERSION"
   delete_search_resource_if_exists "knowledgebases" "$standard_kb_name" "$KNOWLEDGE_API_VERSION"
 
+  # Knowledge sources own generated indexers/skillsets/datasources; delete them first.
+  delete_search_resource_if_exists "knowledgesources" "$minimal_ks_name" "$KNOWLEDGE_API_VERSION"
+  delete_search_resource_if_exists "knowledgesources" "$standard_ks_name" "$KNOWLEDGE_API_VERSION"
+
   delete_search_resource_if_exists "indexers" "$minimal_indexer_name" "$SEARCH_API_VERSION"
   delete_search_resource_if_exists "indexers" "$standard_indexer_name" "$SEARCH_API_VERSION"
 
@@ -155,9 +159,6 @@ cleanup_cu_demo_resources() {
 
   delete_search_resource_if_exists "datasources" "$minimal_ds_name" "$SEARCH_API_VERSION"
   delete_search_resource_if_exists "datasources" "$standard_ds_name" "$SEARCH_API_VERSION"
-
-  delete_search_resource_if_exists "knowledgesources" "$minimal_ks_name" "$KNOWLEDGE_API_VERSION"
-  delete_search_resource_if_exists "knowledgesources" "$standard_ks_name" "$KNOWLEDGE_API_VERSION"
 }
 
 USE_CU_DEMO=false

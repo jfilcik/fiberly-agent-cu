@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import httpx
+from azure.core.credentials import AzureKeyCredential
 from azure.identity import AzureCliCredential, DefaultAzureCredential
 from agent_framework import (
     Agent,
@@ -78,6 +79,7 @@ _LOCAL_DIRECT = _AGENT_MODE == "local-direct"
 
 # Content Understanding (optional, additive)
 _CU_ENDPOINT = os.getenv("AZURE_CONTENTUNDERSTANDING_ENDPOINT", "")
+_CU_KEY = os.getenv("AZURE_CONTENTUNDERSTANDING_KEY", "")
 _CU_ENABLED = bool(_CU_ENDPOINT)
 _CU_VERBOSE_LOGGING = (os.getenv("CU_VERBOSE_LOGGING", "").strip().lower()
                        in ("1", "true", "yes", "on"))
@@ -593,14 +595,17 @@ def create_agent(cu_mode: str = "none", foundry_iq_mode: str | None = None) -> t
         # CU uses the async SDK client, so it needs an AsyncTokenCredential.
         # The sync AzureCliCredential used elsewhere isn't compatible and
         # causes CU analysis to silently no-op.
-        from azure.identity.aio import (
-            AzureCliCredential as AsyncAzureCliCredential,
-            DefaultAzureCredential as AsyncDefaultAzureCredential,
-        )
-        try:
-            async_credential: Any = AsyncAzureCliCredential()
-        except Exception:
-            async_credential = AsyncDefaultAzureCredential()
+        if _CU_KEY:
+            async_credential = AzureKeyCredential(_CU_KEY)
+        else:
+            from azure.identity.aio import (
+                AzureCliCredential as AsyncAzureCliCredential,
+                DefaultAzureCredential as AsyncDefaultAzureCredential,
+            )
+            try:
+                async_credential = AsyncAzureCliCredential()
+            except Exception:
+                async_credential = AsyncDefaultAzureCredential()
         cu_provider = ContentUnderstandingContextProvider(
             endpoint=_CU_ENDPOINT,
             credential=async_credential,

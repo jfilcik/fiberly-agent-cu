@@ -16,6 +16,7 @@ Your goal is to produce a safe, explicit, user-approved setup flow that covers:
 - CU prerequisites in Azure
 - guided CU prerequisite completion with direct CU Studio settings link
 - `.env` updates for CU and Foundry IQ CU demo endpoints
+- `.env` updates for CU, Foundry endpoint, and agent model deployment
 - optional Azure provisioning via `azd up`
 - CU demo KB ingestion setup (`--cu-demo`)
 - CU analyzer creation
@@ -39,6 +40,9 @@ Prefer this skill over ad hoc instructions because it enforces permission gates 
 - Foundry IQ dual-ingestion toggle is enabled only when both are set:
   - `FOUNDRY_IQ_MINIMAL_MCP_URL`
   - `FOUNDRY_IQ_STANDARD_MCP_URL`
+- Agent runtime model deployment is read from:
+  - `AZURE_AI_MODEL_DEPLOYMENT_NAME` (preferred when present)
+  - fallback: `FOUNDRY_MODEL`
 - CU KB setup flag in this repo is:
   - `./scripts/setup-knowledge-base.sh --cu-demo`
 - CU analyzers created by scripts:
@@ -90,11 +94,12 @@ Step rationale checklist (must be stated before asking):
 - Step 4 (local bootstrap): prepares local dependencies and baseline env file.
 - Step 5 (`.env` CU endpoint): enables CU upload parsing and CU mode controls.
 - Step 6 (Foundry endpoint readiness): ensures Foundry project context exists before KB setup.
-- Step 7 (KB setup): creates minimal/standard ingestion paths and MCP endpoints.
-- Step 8 (indexer verification): confirms both ingestion paths are actually ready.
-- Step 9 (analyzers): enables custom work-order extraction and classify+route demo mode.
-- Step 10 (local-direct startup): starts runtime services required for end-to-end testing.
-- Step 11 (health/features): validates local-direct mode and CU feature flags are active.
+- Step 7 (Foundry model deployment selection): ensures the agent uses a valid deployment for LLM calls.
+- Step 8 (KB setup): creates minimal/standard ingestion paths and MCP endpoints.
+- Step 9 (indexer verification): confirms both ingestion paths are actually ready.
+- Step 10 (analyzers): enables custom work-order extraction and classify+route demo mode.
+- Step 11 (local-direct startup): starts runtime services required for end-to-end testing.
+- Step 12 (health/features): validates local-direct mode and CU feature flags are active.
 
 ## Step-by-step workflow
 
@@ -160,6 +165,11 @@ Suggested checks:
 ```bash
 az cognitiveservices account list --output table
 ```
+
+Mandatory ordering for this step (required):
+1. Immediately after the resource listing, print the prerequisite checklist and both links below.
+2. Only then ask for CU resource name and CU Studio confirmation via `vscode_askQuestions`.
+3. If any ask-user call is canceled or skipped, reprint the same checklist + links in plain text and re-ask.
 
 Important (required): ask the user for the **CU resource selected in CU Studio**.
 - Users will often provide only a resource name, not a full endpoint.
@@ -275,6 +285,8 @@ Why this step is needed (must explain before asking):
 - `FOUNDRY_PROJECT_ENDPOINT` is required to attach Search MCP connections to the
   correct Foundry project. Without it, KB setup cannot create/update the
   project-side connections used by the demo.
+- `FOUNDRY_PROJECT_ENDPOINT` is also required to run the agent with the
+  Foundry-hosted model deployment in local-direct mode.
 - `./scripts/setup-knowledge-base.sh --cu-demo` will fail early if this value is
   missing.
 
@@ -309,6 +321,11 @@ grep '^FOUNDRY_PROJECT_ENDPOINT=' .env
 azd env get-value FOUNDRY_PROJECT_ENDPOINT
 ```
 
+Also explain at this checkpoint:
+- Foundry endpoint is not only for KB/index setup.
+- It is also the project context used by the agent runtime to resolve the
+  selected model deployment.
+
 Ask:
 
 "Do you already have Foundry IQ / Foundry project endpoint configured (`FOUNDRY_PROJECT_ENDPOINT` and related Azure resources)?"
@@ -335,7 +352,69 @@ If approved, run `azd up` and continue after success.
 If `azd up` is used and a project endpoint is produced or selected, still
 confirm with the user and then persist it to both `.env` and `azd env`.
 
-### 7) Run CU KB setup (`--cu-demo`) and explain why
+### 7) Foundry model deployment readiness (required)
+
+Why this step is needed (must explain before asking):
+- The agent needs a valid Foundry model deployment to answer chat requests.
+- Without selecting a deployment available in the same Foundry project,
+  local-direct startup may run but chat calls can fail at runtime.
+
+Discovery flow (required):
+1. Parse account + project from `FOUNDRY_PROJECT_ENDPOINT`:
+
+```bash
+# endpoint format: https://<account>.services.ai.azure.com/api/projects/<project>
+```
+
+2. Resolve account resource group if unknown:
+
+```bash
+az cognitiveservices account list \
+  --query "[?name=='<foundry-account>'].{name:name,resourceGroup:resourceGroup,location:location}" \
+  -o table
+```
+
+3. List available model deployments for that Foundry account:
+
+```bash
+az cognitiveservices account deployment list \
+  --name <foundry-account> \
+  --resource-group <foundry-rg> \
+  -o table
+```
+
+If the deployment list command fails because the CLI version or API shape differs,
+use `az rest` fallback and show a concise preview:
+
+```bash
+az rest --method get \
+  --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/<foundry-rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/deployments?api-version=2024-10-01" \
+  --output json
+```
+
+Then ask the user to choose deployment name using value-confirmation style:
+- Show detected deployment names first.
+- Ask: "Use one of these deployment names, or provide another?"
+
+Persist selected model deployment to both locations:
+
+```bash
+# local runtime
+# write/update in .env
+FOUNDRY_MODEL=<deployment-name>
+
+# optional compatibility key used by hosted entrypoint
+AZURE_AI_MODEL_DEPLOYMENT_NAME=<deployment-name>
+
+# azd environment
+azd env set FOUNDRY_MODEL "<deployment-name>"
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "<deployment-name>"
+```
+
+Do not continue to Step 8 until the selected deployment is non-empty in both
+`.env` and `azd env`.
+
+### 8) Run CU KB setup (`--cu-demo`) and explain why
 
 Ask permission to run:
 
@@ -378,7 +457,7 @@ Important:
   values, but does not automatically write all Search vars into `.env`.
 - After user confirmation, sync these values to both `.env` and `azd env`.
 
-### 8) Verify two ingestion indexes are up
+### 9) Verify two ingestion indexes are up
 
 Check indexer states for both knowledge sources:
 - `fibey-iq-minimal-ks-indexer`
@@ -403,7 +482,7 @@ Interpretation guidance:
 - `lastResult.status == success` is ready.
 - standard mode can take longer due to CU extraction.
 
-### 9) Create CU analyzers and explain demo impact
+### 10) Create CU analyzers and explain demo impact
 
 Ask permission to run analyzer creation:
 
@@ -422,7 +501,7 @@ Explain what this enables in demo:
 - `cu_demo_classify_and_analyze`: classifies uploads and routes work orders to structured extraction, other docs to layout extraction.
 - This powers the CU mode comparison in the UI (`None`, `Basic CU`, `Classify & Analyze Work Order`).
 
-### 10) Start local-direct stack with permission
+### 11) Start local-direct stack with permission
 
 Ask permission to start all required local services.
 
@@ -437,7 +516,7 @@ cd services/status-dashboard/public && python -m http.server 8003
 AGENT_MODE=local-direct ./scripts/start-dev.sh
 ```
 
-### 11) Health and feature checks
+### 12) Health and feature checks
 
 Run and validate:
 
@@ -489,11 +568,17 @@ Use these templates for every decision point:
   - Options: `Use detected value`, `Provide another value`, `Stop here`.
   - `allowFreeformInput: true`.
 
+- Value confirmation template (for model deployments):
+  - Show detected deployment name(s) first.
+  - Ask: "Use one of these deployment names, or provide another?"
+  - Options: `Use detected value`, `Provide another value`, `Stop here`.
+  - `allowFreeformInput: true`.
+
 ## Reliability improvements from execution (apply by default)
 
 - Prefer explicit env injection (`VAR=... command`) over `source .env` in shell
   to avoid shell parsing issues from comments/values.
-- Before Step 10, check for local port conflicts (`8001`, `8002`, `8080`, `5173`)
+- Before Step 11, check for local port conflicts (`8001`, `8002`, `8003`, `8080`, `5173`)
   and explain whether existing services can be reused.
 - Treat `./scripts/setup-knowledge-base.sh --cu-demo` as potentially non-idempotent
   on reruns. If rerun fails after partial success, recover by cleaning conflicting
