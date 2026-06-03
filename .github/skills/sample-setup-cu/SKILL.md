@@ -66,6 +66,36 @@ Recommended options for each confirmation:
 - `Yes, continue`
 - `No, stop here`
 
+For all user choices, always include an additional option such as:
+- `Other (specify)`
+
+And set `allowFreeformInput: true` so users can provide extra context,
+alternative values, or custom paths.
+
+## Why-first interaction rule (required)
+
+Before any user choice, first explain **why the step is needed** in 1-2 clear
+sentences, then ask for confirmation.
+
+Use this format for every gated step:
+1. `Why this step is needed:` <brief rationale tied to demo outcome>
+2. `What will run/change:` <exact command or file/env side effect>
+3. Ask with `vscode_askQuestions` (`Yes, continue` / `No, stop here` / `Other (specify)`).
+
+Step rationale checklist (must be stated before asking):
+- Step 0 (CLI preflight): ensures required Azure tooling exists before any setup work.
+- Step 1 (subscription): ensures actions run in the intended Azure subscription.
+- Step 2 (CU resource + Studio): ensures CU backend and model wiring are configured.
+- Step 3 (prerequisites confirmation): prevents proceeding with missing RBAC/resource prerequisites.
+- Step 4 (local bootstrap): prepares local dependencies and baseline env file.
+- Step 5 (`.env` CU endpoint): enables CU upload parsing and CU mode controls.
+- Step 6 (Foundry endpoint readiness): ensures Foundry project context exists before KB setup.
+- Step 7 (KB setup): creates minimal/standard ingestion paths and MCP endpoints.
+- Step 8 (indexer verification): confirms both ingestion paths are actually ready.
+- Step 9 (analyzers): enables custom work-order extraction and classify+route demo mode.
+- Step 10 (local-direct startup): starts runtime services required for end-to-end testing.
+- Step 11 (health/features): validates local-direct mode and CU feature flags are active.
+
 ## Step-by-step workflow
 
 Before step 1, give a brief CU intro using README-aligned language:
@@ -210,6 +240,27 @@ Optional companion variable when needed for setup tooling:
 
 ### 6) Foundry IQ endpoint readiness check
 
+Why this step is needed (must explain before asking):
+- `FOUNDRY_PROJECT_ENDPOINT` is required to attach Search MCP connections to the
+  correct Foundry project. Without it, KB setup cannot create/update the
+  project-side connections used by the demo.
+- `./scripts/setup-knowledge-base.sh --cu-demo` will fail early if this value is
+  missing.
+
+When asking, always show candidate value(s) and ask the user to confirm or
+provide another endpoint.
+
+Suggested discovery commands:
+
+```bash
+azd env get-value FOUNDRY_PROJECT_ENDPOINT
+az resource list --query "[?(type=='Microsoft.CognitiveServices/accounts/projects' || type=='Microsoft.MachineLearningServices/workspaces/projects')].[id]" -o table
+```
+
+If a candidate is found, ask:
+- Confirm this endpoint, or provide another:
+  `https://<account>.services.ai.azure.com/api/projects/<project>`
+
 Ask:
 
 "Do you already have Foundry IQ / Foundry project endpoint configured (`FOUNDRY_PROJECT_ENDPOINT` and related Azure resources)?"
@@ -219,6 +270,17 @@ If not configured, ask:
 "Do you want me to run `azd up` to provision/update the required Azure resources first?"
 
 Prefer asking this via `vscode_askQuestions`.
+
+Include options:
+- `Yes, continue`
+- `No, stop here`
+- `Other (specify endpoint or setup path)`
+
+If the user doesn't have a project endpoint, provide these paths:
+1. Provision/update via `azd provision` or `azd up`.
+2. Attach to existing project via:
+  `azd ai agent init --project-id <resource-id>`
+3. Open Foundry portal and copy project endpoint, then paste it back.
 
 If approved, run `azd up` and continue after success.
 
@@ -326,3 +388,34 @@ Point users to `content-understanding/demo_files/` and suggest:
 - Call out side effects (resource creation, env changes, analyzer recreation).
 - Never edit `.env` or run provisioning/setup scripts without user confirmation.
 - If prerequisites are incomplete, stop and provide the exact next action.
+
+## Standard ask-user templates
+
+Use these templates for every decision point:
+
+- Confirmation template:
+  - Question: concise action question.
+  - Options: `Yes, continue`, `No, stop here`, `Other (specify)`.
+  - `allowFreeformInput: true`.
+
+- Value confirmation template (for endpoints/IDs):
+  - Show detected value(s) first.
+  - Ask: "Use this value, or provide another?"
+  - Options: `Use detected value`, `Provide another value`, `Stop here`.
+  - `allowFreeformInput: true`.
+
+## Reliability improvements from execution (apply by default)
+
+- Prefer explicit env injection (`VAR=... command`) over `source .env` in shell
+  to avoid shell parsing issues from comments/values.
+- Before Step 10, check for local port conflicts (`8001`, `8002`, `8080`, `5173`)
+  and explain whether existing services can be reused.
+- Treat `./scripts/setup-knowledge-base.sh --cu-demo` as potentially non-idempotent
+  on reruns. If rerun fails after partial success, recover by cleaning conflicting
+  `fibey-iq-*` KB/KS/connection resources in dependency-safe order, then retry.
+- If `azd up` fails with missing `AZURE_AI_PROJECT_ID`, guide to either:
+  1) run `azd provision`, or
+  2) connect to existing project via `azd ai agent init --project-id <resource-id>`.
+- Analyzer creation failures should branch by error type:
+  - RBAC/data-action denied: stop and request CU role assignment.
+  - Key/identity mismatch: prefer key-based auth when key is configured.

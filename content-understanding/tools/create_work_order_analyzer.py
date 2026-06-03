@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 load_dotenv(_ENV_FILE)
 
 import os
+from azure.core.credentials import AzureKeyCredential
 from azure.identity import AzureCliCredential
 from azure.ai.contentunderstanding import ContentUnderstandingClient
 from azure.ai.contentunderstanding.models import (
@@ -145,6 +146,11 @@ def get_client() -> ContentUnderstandingClient:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    key = os.getenv("AZURE_CONTENTUNDERSTANDING_KEY", "").strip()
+    if key:
+        return ContentUnderstandingClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+
     return ContentUnderstandingClient(endpoint=endpoint, credential=AzureCliCredential())
 
 
