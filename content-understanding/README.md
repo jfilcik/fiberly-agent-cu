@@ -7,8 +7,8 @@ for the Fibey Field Ops BUILD demo.
 
 | File | Purpose |
 |---|---|
-| `demo_files/work_order_for_prebuilt_layout.docx` | **Primary demo** — Word work order (Aerial Drop, Cedar Grove / J. Martinez). Different content from the PDF so the Basic CU vs. classifier comparison stays clean. Shows CU enables LLMs to read `.docx` (OpenAI cannot). |
-| `demo_files/work_order_for_custom_analyzer.pdf` | PDF work order with a deliberate `Dispatch Log → Route →` misdirection. Shows a custom analyzer beats Basic CU on field routing. |
+| `demo_files/work_order_for_prebuilt_layout.docx` | **Primary demo** — Word work order (Aerial Drop, Cedar Grove / J. Martinez). Different content from the PDF so the **Parse: prebuilt-layout** vs. classifier comparison stays clean. Shows CU enables LLMs to read `.docx` (OpenAI cannot). |
+| `demo_files/work_order_for_custom_analyzer.pdf` | PDF work order with a deliberate `Dispatch Log → Route →` misdirection. Shows a custom analyzer beats **Parse: prebuilt-layout** on field routing. |
 | `demo_files/work_order_scanned.png` | Handwritten / photo-captured work order — shows advanced OCR |
 | `demo_files/safety_cert_splicing.pdf` | Training certification (non-work-order) — shows classification routing |
 | `demo_files/work_order_fiber_splice.json` | Expected CU extraction for the PDF |
@@ -25,7 +25,7 @@ AZURE_CONTENTUNDERSTANDING_ENDPOINT=https://<your-foundry-resource>.services.ai.
 ```
 
 When this variable is set, the "+" file attachment button appears in the chat UI
-and the CU mode selector becomes active in the sidebar.
+and the **CU Context Provider** selector becomes active in the sidebar.
 
 ---
 
@@ -87,12 +87,12 @@ uv run python content-understanding/tools/create_classify_and_analyze.py \
 
 ## Demo Walkthrough
 
-The CU mode selector lives in the Activity sidebar. Three modes are available:
+The **CU Context Provider** selector lives in the Activity sidebar. Three modes are available:
 
 | Mode | Analyzer Used |
 |---|---|
 | **None** | Plain OpenAI (no CU) |
-| **Basic CU** | `prebuilt-layout` — converts document to markdown, no structured fields |
+| **Parse: prebuilt-layout** | `prebuilt-layout` — converts document to markdown, no structured fields |
 | **Classify & Analyze Work Order** | `cu_demo_classify_and_analyze` — classifies, then extracts structured fields |
 
 ### Step 1 — OpenAI Cannot Read a .docx
@@ -112,9 +112,9 @@ ops, and a plain LLM call simply can't see them.** CU bridges that gap.
 
 ---
 
-### Step 2 — Basic CU Lets the LLM Read the .docx
+### Step 2 — Parse: prebuilt-layout Lets the LLM Read the .docx
 
-**Mode: Basic CU**
+**Mode: Parse: prebuilt-layout**
 
 1. Keep the same `work_order_for_prebuilt_layout.docx` attachment (or reattach it).
 2. Send the same prompt.
@@ -130,22 +130,22 @@ layout extraction.
 
 ---
 
-### Step 3 — Custom Analyzer Beats Basic CU on a Tricky PDF
+### Step 3 — Custom Analyzer Beats Parse: prebuilt-layout on a Tricky PDF
 
-**Mode: Basic CU**, then **Classify & Analyze Work Order**
+**Mode: Parse: prebuilt-layout**, then **Classify & Analyze Work Order**
 
-Basic CU is enough to read a clean document, but real field paperwork often
+Parse: prebuilt-layout is enough to read a clean document, but real field paperwork often
 bakes in routing metadata, internal codes, and ambiguous labels. The PDF demo
 file is designed to surface that gap.
 
-1. Attach `work_order_for_custom_analyzer.pdf` and send the prompt in **Basic CU** mode.
+1. Attach `work_order_for_custom_analyzer.pdf` and send the prompt in **Parse: prebuilt-layout** mode.
    The agent returns a confidently wrong technician — typically the on-site
-   contact (e.g. **Marcus Tran**) instead of the actual assignee.
+   supervisor named in the header (**John Smith**, labeled "Field Technician") instead of the actual assignee.
 2. Switch to **Classify & Analyze Work Order** and re-send.
    The agent now returns **J. Martinez** — correct — along with structured
    status, priority, due date, parts, and location.
 
-**Why does Basic CU get it wrong?**
+**Why does Parse: prebuilt-layout get it wrong?**
 The PDF prominently labels an on-site building contact as `Field Technician`. The
 actual assignee appears only in the `Dispatch Log` row as internal routing
 metadata:
@@ -159,9 +159,9 @@ Without per-field guidance, the LLM reads the prominent label at face value.
 **Why does the custom analyzer get it right?**
 `cu_demo_work_order` carries explicit, field-level instructions — for example,
 the `assigned_technician` description tells CU that the `Route →` value in the
-Dispatch Log is the true assignee, not the on-site contact. That field-level
-precision is what distinguishes a custom CU analyzer from Basic CU plus an LLM
-guess.
+Dispatch Log is the true assignee, not the header label. That field-level
+precision is what distinguishes a custom CU analyzer from **Parse: prebuilt-layout**
+plus an LLM guess.
 
 > **Known limitation (DOCX classification).** The `Classify & Analyze` route
 > currently returns `other` for the `.docx` file, so it falls through to
@@ -191,7 +191,7 @@ it will not hallucinate work order fields from an unrelated document type.
 
 ### Bonus B — Handwritten Field Work Order via Photo Capture
 
-**Mode: Classify & Analyze Work Order** (or **Basic CU**)
+**Mode: Classify & Analyze Work Order** (or **Parse: prebuilt-layout**)
 
 1. Attach `work_order_scanned.png` — a photo of a handwritten paper work order
    with real-world imperfections (uneven lighting, handwriting, physical form).

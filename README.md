@@ -97,7 +97,7 @@ Once setup is complete, run the interactive demo walkthrough:
 
 - `/sample-demo-cu`
 
-This skill drives three CU demos in order — Foundry IQ minimal vs. standard ingestion, agent upload modes (None → Basic CU → Classify & Analyze), and a custom analyzer + classifier deep dive — with manual steps and talking points for each.
+This skill drives three CU demos in order — Foundry IQ Minimal vs. Standard · Azure CU ingestion, agent upload modes (None → Parse: prebuilt-layout), and a Classify & Analyze Work Order deep dive — with manual steps and talking points for each.
 
 ## Prerequisites (minimum)
 
@@ -153,7 +153,7 @@ content-understanding/                                # CU demo files + analyzer
 services/foundry-iq-docs/content-understanding/docs/  # Foundry IQ CU demo docs
 scripts/setup-knowledge-base.sh                       # Creates minimal/standard CU demo KBs
 src/fibey/gateway/                                    # API endpoints, feature flags, health checks
-ui/src/                                               # Chat UI and CU mode selectors
+ui/src/                                               # Chat UI, KB extraction mode, and CU Context Provider selectors
 ```
 
 ## License
