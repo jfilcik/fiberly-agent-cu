@@ -24,7 +24,7 @@ class TestBasicCuMode:
     def test_work_order_pdf_returns_markdown(self, cu_client):
         result = analyze_binary(cu_client, PREBUILT_LAYOUT, WORK_ORDER_PDF)
         md = get_markdown_from_result(result)
-        assert md, "prebuilt-layout should return non-empty markdown for work_order_fiber_splice.pdf"
+        assert md, "prebuilt-layout should return non-empty markdown for work_order_for_custom_analyzer.pdf"
 
     def test_work_order_pdf_markdown_contains_key_terms(self, cu_client):
         result = analyze_binary(cu_client, PREBUILT_LAYOUT, WORK_ORDER_PDF)

@@ -1,7 +1,7 @@
 """
 Temporary script to generate a mock 2-page work order PDF for demo/test data.
 Run: uv run python scripts/gen_work_order_pdf.py
-Output: demo_files/work_order_fiber_splice.pdf
+Output: demo_files/work_order_for_custom_analyzer.pdf
 """
 
 from pathlib import Path
@@ -17,7 +17,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 OUTPUT_DIR = Path(__file__).parent.parent / "content-understanding" / "demo_files"
 OUTPUT_DIR.mkdir(exist_ok=True)
-OUTPUT_PATH = OUTPUT_DIR / "work_order_fiber_splice.pdf"
+OUTPUT_PATH = OUTPUT_DIR / "work_order_for_custom_analyzer.pdf"
 
 # ── Color palette ──────────────────────────────────────────────────────────────
 BRAND_BLUE   = colors.HexColor("#1B4F9B")

@@ -30,7 +30,7 @@ If a request spans multiple categories, prefer the multi-tool skill (`work-order
 If the user asks to review/extract/prepare work-order details from an attached file,
 but no file is actually attached in the current message:
 1. Tell the user to click the `+` button in the chat input to attach a file.
-2. Suggest this demo file path: `content-understanding/demo_files/work_order_fiber_splice.pdf`.
+2. Suggest this demo file path: `content-understanding/demo_files/work_order_for_prebuilt_layout.docx`.
 3. Do not proceed with extraction until the file is attached.
 
 ## Tool Discovery (Foundry Toolbox)

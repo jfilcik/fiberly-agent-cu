@@ -23,7 +23,7 @@ class TestClassification:
         result = analyze_binary(cu_client, CLASSIFIER_ID, WORK_ORDER_PDF)
         category = get_category_from_result(result)
         assert category == "work_order", (
-            f"Expected 'work_order' for work_order_fiber_splice.pdf, got '{category}'"
+            f"Expected 'work_order' for work_order_for_custom_analyzer.pdf, got '{category}'"
         )
 
     @pytest.mark.xfail(reason="Classifier trained on PDF/image work orders — docx may route to 'other'", strict=False)
@@ -31,7 +31,7 @@ class TestClassification:
         result = analyze_binary(cu_client, CLASSIFIER_ID, WORK_ORDER_DOCX)
         category = get_category_from_result(result)
         assert category == "work_order", (
-            f"Expected 'work_order' for work_order_fiber_splice.docx, got '{category}'"
+            f"Expected 'work_order' for work_order_for_prebuilt_layout.docx, got '{category}'"
         )
 
     def test_scanned_png_classified_as_work_order(self, cu_client):

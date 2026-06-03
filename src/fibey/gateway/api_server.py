@@ -406,7 +406,7 @@ async def features():
 @app.get("/api/demo-files/{file_name}")
 async def get_demo_file(file_name: str):
     """Serve curated local demo files for the UI quick-load button."""
-    allowed_files = {"work_order_fiber_splice.pdf"}
+    allowed_files = {"work_order_for_custom_analyzer.pdf"}
     if file_name not in allowed_files:
         raise HTTPException(status_code=404, detail="Demo file not found")
 
