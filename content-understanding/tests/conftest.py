@@ -24,8 +24,8 @@ load_dotenv(_REPO_ROOT / ".env")
 
 DEMO_FILES = _REPO_ROOT / "content-understanding" / "demo_files"
 
-WORK_ORDER_PDF = DEMO_FILES / "work_order_fiber_splice.pdf"
-WORK_ORDER_DOCX = DEMO_FILES / "work_order_fiber_splice.docx"
+WORK_ORDER_PDF = DEMO_FILES / "work_order_for_custom_analyzer.pdf"
+WORK_ORDER_DOCX = DEMO_FILES / "work_order_for_prebuilt_layout.docx"
 SCANNED_PNG = DEMO_FILES / "work_order_scanned.png"
 TRAINING_CERT_PDF = DEMO_FILES / "safety_cert_splicing.pdf"
 
@@ -40,6 +40,7 @@ MIME_MAP = {
 
 @pytest.fixture(scope="session")
 def cu_client():
+    from azure.core.credentials import AzureKeyCredential
     from azure.identity import AzureCliCredential
     from azure.ai.contentunderstanding import ContentUnderstandingClient
 
@@ -47,7 +48,9 @@ def cu_client():
     if not endpoint:
         pytest.skip("AZURE_CONTENTUNDERSTANDING_ENDPOINT not set — skipping live CU tests")
 
-    return ContentUnderstandingClient(endpoint=endpoint, credential=AzureCliCredential())
+    key = os.getenv("AZURE_CONTENTUNDERSTANDING_KEY", "").strip()
+    credential = AzureKeyCredential(key) if key else AzureCliCredential()
+    return ContentUnderstandingClient(endpoint=endpoint, credential=credential)
 
 
 def analyze_binary(cu_client, analyzer_id: str, file_path: Path):

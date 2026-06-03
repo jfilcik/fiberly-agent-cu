@@ -450,3 +450,6 @@ scripts/dev-stop.sh
 # Local-only notes (never push)
 *.local.md
 .env.bak
+
+# Local-only scratch dir (never push)
+**/_local_only/

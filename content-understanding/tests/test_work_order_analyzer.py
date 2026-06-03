@@ -80,13 +80,13 @@ class TestWorkOrderPdf:
 
 
 class TestWorkOrderDocx:
-    """Work order in .docx format — same data as the PDF.
+    """Work order in .docx format — a *different* work order from the PDF.
 
-    CU can process .docx (unlike OpenAI which rejects it entirely).
-    The custom analyzer extracts core structured fields correctly.
-    Title, location, and assigned_technician may not extract from .docx
-    since the analyzer was trained primarily on PDF/image work orders —
-    this is a known format-specific limitation useful for the demo.
+    The docx is intentionally a separate work order used to demo Basic CU
+    (prebuilt-layout) side-by-side with the custom analyzer on the PDF.
+    These tests verify the custom analyzer still produces a structured
+    extraction from .docx; they do not assert equality against the PDF's
+    expected fields.
     """
 
     @pytest.fixture(scope="class")
@@ -102,37 +102,41 @@ class TestWorkOrderDocx:
         for field in WO_FIELDS:
             assert field in fields, f"Expected field '{field}' missing from docx result"
 
-    def test_status_matches_expected(self, fields, expected_pdf):
-        assert fields.get("status") == expected_pdf["status"]
+    def test_status_in_enum(self, fields):
+        assert fields.get("status") in {"open", "in_progress", "completed", "cancelled"}
 
-    def test_priority_matches_expected(self, fields, expected_pdf):
-        assert fields.get("priority") == expected_pdf["priority"]
+    def test_priority_in_enum(self, fields):
+        assert fields.get("priority") in {"low", "medium", "high", "critical"}
 
-    def test_due_date_matches_expected(self, fields, expected_pdf):
-        assert fields.get("due_date") == expected_pdf["due_date"]
+    def test_due_date_iso_format(self, fields):
+        due = fields.get("due_date") or ""
+        assert due.endswith("Z") and "T" in due, f"due_date should be ISO 8601 Z, got '{due}'"
 
     def test_description_non_empty(self, fields):
         assert fields.get("description"), "description should not be empty"
 
-    def test_parts_needed_matches_expected(self, fields, expected_pdf):
+    def test_parts_needed_well_formed(self, fields):
         got = fields.get("parts_needed") or []
-        exp = expected_pdf["parts_needed"]
-        assert len(got) == len(exp), f"parts_needed count: got {len(got)}, expected {len(exp)}"
-        for i, (g, e) in enumerate(zip(got, exp)):
-            assert g.get("part_id") == e["part_id"]
-            assert int(g.get("quantity", 0)) == int(e["quantity"])
+        assert isinstance(got, list) and len(got) >= 1, "parts_needed should be a non-empty list"
+        for i, p in enumerate(got):
+            assert (p.get("part_id") or "").startswith("FIB-"), (
+                f"parts_needed[{i}].part_id should be FIB-XXX, got '{p.get('part_id')}'"
+            )
+            assert int(p.get("quantity", 0)) >= 1, (
+                f"parts_needed[{i}].quantity should be >= 1, got {p.get('quantity')}"
+            )
 
     @pytest.mark.xfail(reason="Custom analyzer trained on PDF/image — title may not extract from docx", strict=False)
     def test_title_non_empty(self, fields):
         assert fields.get("title"), "title should not be empty"
 
     @pytest.mark.xfail(reason="Custom analyzer trained on PDF/image — assigned_technician may not extract from docx", strict=False)
-    def test_assigned_technician_matches_expected(self, fields, expected_pdf):
-        assert fields.get("assigned_technician") == expected_pdf["assigned_technician"]
+    def test_assigned_technician_present(self, fields):
+        assert fields.get("assigned_technician")
 
     @pytest.mark.xfail(reason="Custom analyzer trained on PDF/image — location may not extract from docx", strict=False)
-    def test_location_matches_expected(self, fields, expected_pdf):
-        assert fields.get("location") == expected_pdf["location"]
+    def test_location_present(self, fields):
+        assert fields.get("location")
 
 
 class TestScannedWorkOrderPng:
