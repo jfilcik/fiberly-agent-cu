@@ -190,7 +190,15 @@ export default function MessageBubble({ message, isStreaming }: MessageBubblePro
                       />
                     ) : (
                       <div className="flex items-center gap-1.5 rounded-lg bg-blue-500/30 px-2.5 py-1.5 text-xs">
-                        <span className="material-icons-outlined text-[14px]">picture_as_pdf</span>
+                        <span className="material-icons-outlined text-[14px]">
+                          {att.type.startsWith("video/")
+                            ? "videocam"
+                            : att.type.startsWith("audio/")
+                            ? "audiotrack"
+                            : att.type === "application/pdf" || att.name.toLowerCase().endsWith(".pdf")
+                            ? "picture_as_pdf"
+                            : "description"}
+                        </span>
                         <span className="max-w-[150px] truncate">{att.name}</span>
                       </div>
                     )}

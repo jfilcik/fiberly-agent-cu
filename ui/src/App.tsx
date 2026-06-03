@@ -52,6 +52,17 @@ export default function App() {
     send(text, attachments, cuMode, enableFoundryIqCuDemo ? foundryIqMode : undefined);
   };
 
+  // Auto-reset chat when Foundry IQ ingestion mode changes so the LLM cannot answer
+  // the comparison question from its own conversation history. Without this, a
+  // presenter who forgets to start a new chat will get a "correct" Standard-mode
+  // answer that is actually sourced from prior turns, invalidating the demo.
+  const handleFoundryIqModeChange = (mode: FoundryIqMode) => {
+    if (mode !== foundryIqMode) {
+      void resetChat();
+    }
+    setFoundryIqMode(mode);
+  };
+
   return (
     <div className="flex h-screen flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {/* Header */}
@@ -113,7 +124,7 @@ export default function App() {
             onCuModeChange={setCuMode}
             enableFoundryIqCuDemo={enableFoundryIqCuDemo}
             foundryIqMode={foundryIqMode}
-            onFoundryIqModeChange={setFoundryIqMode}
+            onFoundryIqModeChange={handleFoundryIqModeChange}
           />
         )}
       </div>
