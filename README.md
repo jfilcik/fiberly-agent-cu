@@ -1,23 +1,27 @@
 # Fibey Field Ops
 
+This repository is a fork of https://github.com/dbarkol/fibey-agent.
+The original Fibey demo showcases a fiber field-operations assistant that uses
+an Azure AI Foundry agent with Toolbox-connected operational services.
+
 Azure Content Understanding (CU) is a multimodal document understanding
 capability for extracting structure and meaning from diverse document formats
 and layouts.
+
+CU can also process other modalities, including audio and video files.
+This demo, however, focuses on document modalities and CU-powered document
+workflows.
 
 For official product details, see:
 
 - https://learn.microsoft.com/azure/ai-services/content-understanding/overview
 
-This repository is a fork of:
-
-- https://github.com/dbarkol/fibey-agent
-
 This fork is focused on one goal: demonstrating how Azure Content
 Understanding (CU) improves the agent flow, especially in:
 
 - document upload
-    - Supports a wide range of document types and capture styles, including
-        `.docx`, scanned documents, handwritten text, and complex layout
+    - Supports documents from different sources (photos, scans,
+        screenshots), including `.docx`, handwritten text, and complex layout
         understanding.
 - document classification
     - Routes each document to the right analyzer path, reducing incorrect tool
@@ -31,29 +35,38 @@ Understanding (CU) improves the agent flow, especially in:
 
 ## CU-focused scope in this fork
 
-- CU-powered upload parsing in local-direct mode
+The original demo supports multiple runtime modes (see `AGENT_MODE`).
+This fork focuses on `local-direct` mode: the gateway runs the agent in-process and
+bypasses cloud-based Toolbox. Instead, backend services are launched locally,
+and the agent calls these local backends directly to reduce cloud
+setup complexity for the CU demo flow.
+
+- CU-powered upload parsing in local-direct mode (agent + tool services running locally)
 - CU custom analyzer workflow for work orders
 - Foundry IQ ingestion comparison, with emphasis on standard mode (CU-enhanced)
 - Demo-first setup flow through Copilot skill automation
 
 ## Architecture (CU demo path)
 
+For the full-platform architecture from the original fork, see:
+
+- https://github.com/dbarkol/fibey-agent#architecture
+
+The diagram below shows this fork's `local-direct` mode.
+
 ```text
 ┌──────────────┐  /api/chat  ┌──────────────────┐  in-proc  ┌──────────────────┐
 │  React UI    │ ──────────► │  FastAPI Gateway │ ────────► │  Fibey Agent     │
-│  + Activity  │ ◄── SSE ─── │  (:8080)         │           │  (agent-fw)      │
+│  + Activity  │ ◄── SSE ─── │  (:8080)         │           │ (agent-framework)│
 └──────────────┘             └──────────────────┘           └────────┬─────────┘
                                                                      │
-                                                         Foundry Toolbox MCP
+                          local-direct calls to local backends/services
                                                                      │
               ┌────────────────┬───────────────────┬─────────────────┐
-              │ inventory-mcp  │ work-orders-api   │ FoundryIQ KB    │
-              │   (:8001)      │    (:8002)        │ (AI Search)     │
+              │ inventory-mcp  │ work-orders-api   │ status-dashboard│
+              │   (:8001)      │    (:8002)        │    (:8003)      │
               └────────────────┴───────────────────┴─────────────────┘
 ```
-
-The sample also ships **containerapp** and **hosted** modes — see
-[docs/architecture.md](docs/architecture.md).
 
 ## Quickstart (recommended)
 
