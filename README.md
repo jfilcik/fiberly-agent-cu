@@ -38,7 +38,7 @@ Understanding (CU) improves the agent flow, especially in:
 The original demo supports multiple runtime modes (see `AGENT_MODE`).
 This fork focuses on `local-direct` mode: the gateway runs the agent in-process and
 bypasses cloud-based Toolbox. Instead, backend services are launched locally,
-and the agent calls these local backends directly to reduce cloud
+and the agent calls local services directly to reduce cloud
 setup complexity for the CU demo flow.
 
 - CU-powered upload parsing in local-direct mode (agent + tool services running locally)
@@ -59,13 +59,17 @@ The diagram below shows this fork's `local-direct` mode.
 │  React UI    │ ──────────► │  FastAPI Gateway │ ────────► │  Fibey Agent     │
 │  + Activity  │ ◄── SSE ─── │  (:8080)         │           │ (agent-framework)│
 └──────────────┘             └──────────────────┘           └────────┬─────────┘
-                                                                     │
-                          local-direct calls to local backends/services
-                                                                     │
-              ┌────────────────┬───────────────────┬─────────────────┐
-              │ inventory-mcp  │ work-orders-api   │ status-dashboard│
-              │   (:8001)      │    (:8002)        │    (:8003)      │
-              └────────────────┴───────────────────┴─────────────────┘
+                               ┌─────────────────────────────────────────────┐
+                               │                                             │
+                local-direct calls to local services          queries cloud KB
+                               │                                             │
+                               ▼                                             ▼
+                    ┌────────────────┬───────────────────┐    ┌─────────────────────────────────────────────────────────┐
+                    │ inventory-mcp  │ work-orders-api   │    │ Foundry IQ (Cloud / AI Search)                         │
+                    │   (:8001)      │    (:8002)        │    │  - minimal index: baseline ingestion                    │
+                    └────────────────┴───────────────────┘    │  - standard index: CU-enhanced (better layout/tables)  │
+                                                              └─────────────────────────────────────────────────────────┘
+
 ```
 
 ## Quickstart (recommended)
@@ -118,7 +122,6 @@ The `/sample-setup-cu` skill sets up and verifies this flow.
 | Gateway | `http://localhost:8080` |
 | Inventory MCP | `http://localhost:8001` |
 | Work Orders API | `http://localhost:8002` |
-| Status Dashboard | `http://localhost:8003` |
 
 ## CU demo references
 
@@ -135,24 +138,6 @@ container app deployment, and the broader original sample scope, use the
 upstream repository:
 
 - https://github.com/dbarkol/fibey-agent
-
-You can also refer to the forked docs kept in this repo:
-
-| Doc | Focus |
-|---|---|
-| [docs/toolbox-integration.md](docs/toolbox-integration.md) | Toolbox integration details |
-| [docs/architecture.md](docs/architecture.md) | Full architecture and runtime modes |
-| [docs/deployment.md](docs/deployment.md) | Azure deployment details |
-| [infra-agent/README.md](infra-agent/README.md) | Hosted agent infrastructure notes |
-
-## Copilot skill command
-
-In Copilot Chat, run:
-
-- `/sample-setup-cu`
-
-This is the recommended way to provision CU resources, run setup scripts, and
-start the demo with explicit approval checkpoints.
 
 ## Project layout (CU-relevant)
 
