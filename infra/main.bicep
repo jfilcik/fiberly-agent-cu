@@ -33,8 +33,8 @@ param foundryModel string = ''
 @description('Foundry Toolbox MCP endpoint used by the gateway.')
 param toolboxMcpUrl string = ''
 
-@description('Whether to create the AI Search -> Storage Blob Data Reader role assignment.')
-param enableSearchBlobReaderRoleAssignment bool = true
+@description('Whether to create the AI Search -> Storage Blob Data Reader role assignment. Not required for the CU demo (Foundry IQ uses Knowledge Base ingestion, not blob-backed Search indexers). Default false to avoid RBAC permission failures during azd up; enable only if you add blob-backed Search indexers.')
+param enableSearchBlobReaderRoleAssignment bool = false
 
 var resourceToken = toLower(uniqueString(subscription().subscriptionId, resourceGroup().id, environmentName))
 var sanitizedEnvironmentName = replace(toLower(environmentName), '-', '')

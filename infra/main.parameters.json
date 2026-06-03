@@ -33,7 +33,7 @@
       "value": "${TOOLBOX_MCP_URL}"
     },
     "enableSearchBlobReaderRoleAssignment": {
-      "value": "${ENABLE_SEARCH_BLOB_READER_ROLE_ASSIGNMENT}"
+      "value": "${ENABLE_SEARCH_BLOB_READER_ROLE_ASSIGNMENT=false}"
     }
   }
 }
