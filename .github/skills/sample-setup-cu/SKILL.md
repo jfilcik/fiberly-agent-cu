@@ -261,6 +261,23 @@ If a candidate is found, ask:
 - Confirm this endpoint, or provide another:
   `https://<account>.services.ai.azure.com/api/projects/<project>`
 
+After user confirmation, persist the value in both places:
+
+```bash
+# local runtime config
+# write/update in .env
+
+# azd environment (used by scripts and future provisioning/setup)
+azd env set FOUNDRY_PROJECT_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>"
+```
+
+Do not continue to Step 7 until `FOUNDRY_PROJECT_ENDPOINT` is non-empty in both:
+
+```bash
+grep '^FOUNDRY_PROJECT_ENDPOINT=' .env
+azd env get-value FOUNDRY_PROJECT_ENDPOINT
+```
+
 Ask:
 
 "Do you already have Foundry IQ / Foundry project endpoint configured (`FOUNDRY_PROJECT_ENDPOINT` and related Azure resources)?"
@@ -284,6 +301,9 @@ If the user doesn't have a project endpoint, provide these paths:
 
 If approved, run `azd up` and continue after success.
 
+If `azd up` is used and a project endpoint is produced or selected, still
+confirm with the user and then persist it to both `.env` and `azd env`.
+
 ### 7) Run CU KB setup (`--cu-demo`) and explain why
 
 Ask permission to run:
@@ -302,6 +322,17 @@ Explain why before running:
 After run, ensure these are configured in environment:
 - `FOUNDRY_IQ_MINIMAL_MCP_URL`
 - `FOUNDRY_IQ_STANDARD_MCP_URL`
+
+Also ensure direct KB query variables are set (used when toolbox search tools
+are unavailable):
+- `AZURE_SEARCH_ENDPOINT` (example: `https://<search>.search.windows.net`)
+- `AZURE_SEARCH_INDEX` (default in this repo: `foundry-iq-docs-index`)
+- `AZURE_SEARCH_API_KEY` (or `AZURE_SEARCH_ADMIN_KEY`) when using key auth
+
+Important:
+- `scripts/setup-knowledge-base.sh` prints `azd env set ...` commands for Search
+  values, but does not automatically write all Search vars into `.env`.
+- After user confirmation, sync these values to both `.env` and `azd env`.
 
 ### 8) Verify two ingestion indexes are up
 
