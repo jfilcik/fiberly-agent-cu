@@ -93,6 +93,12 @@ After setup, open the UI:
 
 - http://localhost:5173
 
+Once setup is complete, run the interactive demo walkthrough:
+
+- `/sample-demo-cu`
+
+This skill drives three CU demos in order — Foundry IQ minimal vs. standard ingestion, agent upload modes (None → Basic CU → Classify & Analyze), and a custom analyzer + classifier deep dive — with manual steps and talking points for each.
+
 ## Prerequisites (minimum)
 
 - Python 3.12+
@@ -130,6 +136,7 @@ The `/sample-setup-cu` skill sets up and verifies this flow.
 | [content-understanding/README.md](content-understanding/README.md) | End-to-end CU demo walkthrough and analyzer commands |
 | [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md) | Foundry IQ minimal vs standard ingestion setup details |
 | [.github/skills/sample-setup-cu/SKILL.md](.github/skills/sample-setup-cu/SKILL.md) | Copilot skill playbook used by `/sample-setup-cu` |
+| [.github/skills/sample-demo-cu/SKILL.md](.github/skills/sample-demo-cu/SKILL.md) | Copilot skill playbook used by `/sample-demo-cu` to run the CU demo scenarios |
 
 ## Need the original full-platform guidance?
 

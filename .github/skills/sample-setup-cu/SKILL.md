@@ -488,10 +488,10 @@ Ask permission to run analyzer creation:
 
 ```bash
 uv run python content-understanding/tools/create_work_order_analyzer.py \
-  --analyze content-understanding/demo_files/work_order_fiber_splice.pdf
+  --analyze content-understanding/demo_files/work_order_for_custom_analyzer.pdf
 
 uv run python content-understanding/tools/create_classify_and_analyze.py \
-  --analyze content-understanding/demo_files/work_order_fiber_splice.pdf
+  --analyze content-understanding/demo_files/work_order_for_custom_analyzer.pdf
 ```
 
 Prefer asking this via `vscode_askQuestions`.
@@ -539,12 +539,24 @@ At the end of setup, always print clickable local URLs for quick validation:
 
 ## Demo scenarios to suggest after setup
 
-Point users to `content-understanding/demo_files/` and suggest:
+Once setup completes successfully, recommend the user invoke the dedicated demo
+skill rather than walking through scenarios ad-hoc:
 
-1. Mode `None` + `.docx` upload: show baseline limitation.
-2. Mode `Basic CU`: extraction works but may miss domain-specific field semantics.
-3. Mode `Classify & Analyze Work Order`: structured extraction with correct routing.
-4. Foundry IQ Ingestion selector `minimal` vs `standard` for table-accuracy comparison.
+> **Next step:** run `/sample-demo-cu` to start the guided CU demo walkthrough.
+> It covers, in order:
+>
+> 1. Foundry IQ ingestion — `minimal` vs. `standard` (CU at ingestion time).
+> 2. Agent upload modes — `None` → `Basic CU` → `Classify & Analyze Work Order`
+>    (CU at runtime upload time, using files in `content-understanding/demo_files/`).
+> 3. Custom analyzer + classifier deep dive — explains *why* the runtime demo
+>    works (field-level prompts in `cu_demo_work_order`, routing in
+>    `cu_demo_classify_and_analyze`).
+>
+> The demo skill enforces "start a new chat session between steps" so the LLM
+> cannot leak the correct answer into the without-CU baseline.
+
+If the user wants a quick spot-check before running the full demo, point them to
+`content-understanding/demo_files/` and any single scenario above.
 
 ## Communication style requirements
 
