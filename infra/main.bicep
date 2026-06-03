@@ -33,6 +33,9 @@ param foundryModel string = ''
 @description('Foundry Toolbox MCP endpoint used by the gateway.')
 param toolboxMcpUrl string = ''
 
+@description('Whether to create the AI Search -> Storage Blob Data Reader role assignment.')
+param enableSearchBlobReaderRoleAssignment bool = true
+
 var resourceToken = toLower(uniqueString(subscription().subscriptionId, resourceGroup().id, environmentName))
 var sanitizedEnvironmentName = replace(toLower(environmentName), '-', '')
 
@@ -40,7 +43,7 @@ var containerAppsEnvironmentName = '${environmentName}-cae'
 var logAnalyticsWorkspaceName = '${environmentName}-logs'
 var registryName = 'acr${take(sanitizedEnvironmentName, 15)}${take(resourceToken, 8)}'
 var storageAccountName = 'st${take(sanitizedEnvironmentName, 10)}${take(resourceToken, 12)}'
-var searchServiceName = '${environmentName}-search'
+var searchServiceName = take(toLower('${environmentName}-search-${take(resourceToken, 6)}'), 60)
 
 var uiAppName = '${environmentName}-ui'
 var gatewayAppName = '${environmentName}-gateway'
@@ -90,7 +93,7 @@ resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existi
   name: storageAccountName
 }
 
-resource searchBlobReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource searchBlobReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableSearchBlobReaderRoleAssignment) {
   name: guid(storageAccountRef.id, searchServiceName, 'Storage Blob Data Reader')
   scope: storageAccountRef
   properties: {
