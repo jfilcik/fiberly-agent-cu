@@ -79,7 +79,7 @@ delete_search_resource_if_exists() {
   local status_code
 
   status_code=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE "$delete_url" \
-    -H "api-key: ${SEARCH_ADMIN_KEY}")
+    -H "Authorization: Bearer ${SEARCH_TOKEN}")
 
   case "$status_code" in
     200|202|204)
@@ -162,18 +162,39 @@ cleanup_cu_demo_resources() {
 }
 
 USE_CU_DEMO=false
+ADMIN_PREP=false
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   echo "Usage:"
   echo "  ./scripts/setup-knowledge-base.sh [foundry-project-endpoint]"
   echo "  ./scripts/setup-knowledge-base.sh --cu-demo [foundry-project-endpoint]"
+  echo "  ./scripts/setup-knowledge-base.sh --admin-prep [foundry-project-endpoint]"
+  echo ""
+  echo "Modes:"
+  echo "  default      Dev path: create datasource/index/indexer/KS/KB/Foundry-connection using data-plane RBAC (no listKeys, no admin-key)."
+  echo "  --cu-demo    Dev path for the CU demo: create minimal + standard KS/KB pair for Foundry IQ ingestion comparison."
+  echo "  --admin-prep Admin path: assign Search Index Data Reader to the Foundry MI on the Search service. Run once by a user with User Access Administrator."
   echo ""
   echo "Required env var (or positional arg):"
   echo "  FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>"
+  echo ""
+  echo "Required dev-track roles (the user running this script must have):"
+  echo "  - Storage Blob Data Contributor      on the storage account"
+  echo "  - Search Index Data Contributor      on the Search service"
+  echo "  - Azure AI User                       on the Foundry project"
+  echo "  - Reader                              on the resource group"
+  echo ""
+  echo "Required admin-track roles (--admin-prep mode):"
+  echo "  - User Access Administrator           on the Search service"
   exit 0
 fi
 
 if [[ "${1:-}" == "--cu-demo" ]]; then
   USE_CU_DEMO=true
+  shift
+fi
+
+if [[ "${1:-}" == "--admin-prep" ]]; then
+  ADMIN_PREP=true
   shift
 fi
 
@@ -231,16 +252,22 @@ SEARCH_RESOURCE_ID=$(az search service show \
   --resource-group "${AZURE_RESOURCE_GROUP}" \
   --query id -o tsv)
 
-STORAGE_CONNECTION_STRING=$(az storage account show-connection-string \
+STORAGE_RESOURCE_ID=$(az storage account show \
   --name "$STORAGE_ACCOUNT" \
-  --query connectionString -o tsv)
+  --query id -o tsv)
 
-SEARCH_ADMIN_KEY="${AZURE_SEARCH_ADMIN_KEY:-}"
-if [ -z "$SEARCH_ADMIN_KEY" ]; then
-  SEARCH_ADMIN_KEY=$(az search admin-key show \
-    --service-name "$SEARCH_SERVICE" \
-    --resource-group "${AZURE_RESOURCE_GROUP}" \
-    --query primaryKey -o tsv)
+# Search REST calls use AAD Bearer tokens (no admin-key needed).
+# Requires the caller to have Search Index Data Contributor on the Search service
+# and the Search service to allow AAD auth (auth-options aad or aadOrApiKey).
+SEARCH_TOKEN=$(az account get-access-token \
+  --resource https://search.azure.com \
+  --query accessToken -o tsv)
+
+if [ -z "$SEARCH_TOKEN" ]; then
+  echo "Failed to acquire Search data-plane AAD token."
+  echo "Make sure your Search service has AAD auth enabled:"
+  echo "  az search service update -n $SEARCH_SERVICE -g $AZURE_RESOURCE_GROUP --auth-options aad"
+  exit 1
 fi
 
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
@@ -354,7 +381,7 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
   az storage container create \
     --name "$CU_CONTAINER_NAME" \
     --account-name "$STORAGE_ACCOUNT" \
-    --auth-mode key \
+    --auth-mode login \
     --only-show-errors 2>&1 | grep -v "^$" || true
   sleep 5
 
@@ -364,7 +391,7 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
     --source "$DOCS_DIR" \
     --destination "$CU_CONTAINER_NAME" \
     --account-name "$STORAGE_ACCOUNT" \
-    --auth-mode key \
+    --auth-mode login \
     --overwrite \
     --no-progress
 
@@ -372,7 +399,7 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
     --source "$CU_DOCS_DIR" \
     --destination "$CU_CONTAINER_NAME" \
     --account-name "$STORAGE_ACCOUNT" \
-    --auth-mode key \
+    --auth-mode login \
     --overwrite \
     --no-progress
 
@@ -397,15 +424,18 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
 
     echo ""
     echo "=== Creating knowledge source: $ks_name (mode: $extraction_mode) ==="
+    # Use managed-identity blob auth instead of connectionString — Search MI
+    # reads blobs with Storage Blob Data Reader (assigned by --admin-prep).
     curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/knowledgesources/${ks_name}?api-version=${KNOWLEDGE_API_VERSION}" \
       -H "Content-Type: application/json" \
-      -H "api-key: ${SEARCH_ADMIN_KEY}" \
+      -H "Authorization: Bearer ${SEARCH_TOKEN}" \
       -d "{
         \"name\": \"${ks_name}\",
         \"kind\": \"azureBlob\",
         \"description\": \"Foundry IQ CU demo — ${extraction_mode} ingestion mode\",
         \"azureBlobParameters\": {
-          \"connectionString\": \"${STORAGE_CONNECTION_STRING}\",
+          \"identity\": { \"@odata.type\": \"#Microsoft.Azure.Search.DataSourceIdentity.None\" },
+          \"resourceUri\": \"https://${STORAGE_ACCOUNT}.blob.core.windows.net\",
           \"containerName\": \"${CU_CONTAINER_NAME}\",
           \"ingestionParameters\": {
             \"contentExtractionMode\": \"${extraction_mode}\"
@@ -425,7 +455,7 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
     echo "=== Creating knowledge base: $kb_name ==="
     curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/knowledgebases/${kb_name}?api-version=${KNOWLEDGE_API_VERSION}" \
       -H "Content-Type: application/json" \
-      -H "api-key: ${SEARCH_ADMIN_KEY}" \
+      -H "Authorization: Bearer ${SEARCH_TOKEN}" \
       -d "{
         \"name\": \"${kb_name}\",
         \"description\": \"${description}\",
@@ -471,23 +501,34 @@ if [[ "$USE_CU_DEMO" == "true" ]]; then
   create_cu_foundry_connection "$STANDARD_CONNECTION_NAME" "$STANDARD_KB_NAME"
 
   echo ""
-  echo "=== Assigning Search Index Data Reader RBAC ==="
-  EXISTING_ASSIGNMENT=$(az role assignment list \
-    --assignee-object-id "$FOUNDRY_MI_PRINCIPAL_ID" \
-    --scope "$SEARCH_RESOURCE_ID" \
-    --query "[?roleDefinitionId=='${ROLE_DEFINITION_ID}'].id | [0]" \
-    -o tsv)
-
-  if [ -n "$EXISTING_ASSIGNMENT" ]; then
-    echo "✓ Search Index Data Reader already assigned"
-  else
-    az role assignment create \
+  if [[ "$ADMIN_PREP" == "true" ]]; then
+    echo "=== [admin] Assigning Search Index Data Reader RBAC to Foundry MI ==="
+    EXISTING_ASSIGNMENT=$(az role assignment list \
       --assignee-object-id "$FOUNDRY_MI_PRINCIPAL_ID" \
-      --assignee-principal-type ServicePrincipal \
-      --role "$SEARCH_INDEX_DATA_READER_ROLE_ID" \
       --scope "$SEARCH_RESOURCE_ID" \
-      --only-show-errors >/dev/null
-    echo "✓ Search Index Data Reader assigned"
+      --query "[?roleDefinitionId=='${ROLE_DEFINITION_ID}'].id | [0]" \
+      -o tsv)
+
+    if [ -n "$EXISTING_ASSIGNMENT" ]; then
+      echo "✓ Search Index Data Reader already assigned"
+    else
+      az role assignment create \
+        --assignee-object-id "$FOUNDRY_MI_PRINCIPAL_ID" \
+        --assignee-principal-type ServicePrincipal \
+        --role "$SEARCH_INDEX_DATA_READER_ROLE_ID" \
+        --scope "$SEARCH_RESOURCE_ID" \
+        --only-show-errors >/dev/null
+      echo "✓ Search Index Data Reader assigned"
+    fi
+  else
+    echo "ℹ Skipping role assignment (dev mode). The Foundry MI needs Search Index Data Reader on $SEARCH_SERVICE."
+    echo "  If KB queries fail with 403, ask an admin to run:"
+    echo "    az role assignment create \\"
+    echo "      --assignee-object-id $FOUNDRY_MI_PRINCIPAL_ID \\"
+    echo "      --assignee-principal-type ServicePrincipal \\"
+    echo "      --role $SEARCH_INDEX_DATA_READER_ROLE_ID \\"
+    echo "      --scope $SEARCH_RESOURCE_ID"
+    echo "  Or rerun this script as the admin with --admin-prep."
   fi
 
   MINIMAL_MCP="${SEARCH_ENDPOINT}/knowledgebases/${MINIMAL_KB_NAME}/mcp"
@@ -510,7 +551,7 @@ az storage blob upload-batch \
   --source "$DOCS_DIR" \
   --destination "$CONTAINER_NAME" \
   --account-name "$STORAGE_ACCOUNT" \
-  --auth-mode key \
+  --auth-mode login \
   --overwrite \
   --no-progress
 echo "✓ Uploaded $(find "$DOCS_DIR" -maxdepth 1 -type f | wc -l | tr -d ' ') documents"
@@ -520,12 +561,12 @@ echo ""
 echo "=== Creating search data source ==="
 curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/datasources/${DATASOURCE_NAME}?api-version=${SEARCH_API_VERSION}" \
   -H "Content-Type: application/json" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -H "Authorization: Bearer ${SEARCH_TOKEN}" \
   -d "{
     \"name\": \"${DATASOURCE_NAME}\",
     \"type\": \"azureblob\",
     \"credentials\": {
-      \"connectionString\": \"${STORAGE_CONNECTION_STRING}\"
+      \"connectionString\": \"ResourceId=${STORAGE_RESOURCE_ID};\"
     },
     \"container\": {
       \"name\": \"${CONTAINER_NAME}\"
@@ -538,7 +579,7 @@ echo ""
 echo "=== Creating search index ==="
 curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/indexes/${INDEX_NAME}?api-version=${SEARCH_API_VERSION}" \
   -H "Content-Type: application/json" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -H "Authorization: Bearer ${SEARCH_TOKEN}" \
   -d "{
     \"name\": \"${INDEX_NAME}\",
     \"fields\": [
@@ -567,7 +608,7 @@ echo ""
 echo "=== Creating search indexer ==="
 curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/indexers/${INDEXER_NAME}?api-version=${SEARCH_API_VERSION}" \
   -H "Content-Type: application/json" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -H "Authorization: Bearer ${SEARCH_TOKEN}" \
   -d "{
     \"name\": \"${INDEXER_NAME}\",
     \"dataSourceName\": \"${DATASOURCE_NAME}\",
@@ -595,7 +636,7 @@ echo "✓ Indexer created"
 echo ""
 echo "=== Running indexer ==="
 curl --fail-with-body -sS -X POST "${SEARCH_ENDPOINT}/indexers/${INDEXER_NAME}/run?api-version=${SEARCH_API_VERSION}" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -H "Authorization: Bearer ${SEARCH_TOKEN}" \
   -H "Content-Length: 0" \
   -w "HTTP %{http_code}"
 echo ""
@@ -606,7 +647,7 @@ echo ""
 echo "=== Checking indexer status ==="
 sleep 5
 STATUS=$(curl --fail-with-body -sS "${SEARCH_ENDPOINT}/indexers/${INDEXER_NAME}/status?api-version=${SEARCH_API_VERSION}" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}")
+  -H "Authorization: Bearer ${SEARCH_TOKEN}")
 echo "$STATUS" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -621,7 +662,7 @@ echo ""
 echo "=== Creating knowledge source ==="
 curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/knowledgesources/${KS_NAME}?api-version=${KNOWLEDGE_API_VERSION}" \
   -H "Content-Type: application/json" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -H "Authorization: Bearer ${SEARCH_TOKEN}" \
   -d "{
     \"name\": \"${KS_NAME}\",
     \"kind\": \"searchIndex\",
@@ -646,7 +687,7 @@ echo ""
 echo "=== Creating knowledge base ==="
 curl --fail-with-body -sS -X PUT "${SEARCH_ENDPOINT}/knowledgebases/${KB_NAME}?api-version=${KNOWLEDGE_API_VERSION}" \
   -H "Content-Type: application/json" \
-  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -H "Authorization: Bearer ${SEARCH_TOKEN}" \
   -d "{
     \"name\": \"${KB_NAME}\",
     \"description\": \"Knowledge base for Fibey Field Ops procedures, safety guidance, and troubleshooting docs.\",
@@ -679,25 +720,36 @@ curl --fail-with-body -sS -X PUT "https://management.azure.com${FOUNDRY_PROJECT_
   }" | python3 -m json.tool
 echo "✓ Foundry connection created"
 
-# ─── 10. Assign RBAC ───────────────────────────────────────────────────
+# ─── 10. Assign RBAC (admin only) ──────────────────────────────────────
 echo ""
-echo "=== Assigning Search Index Data Reader RBAC ==="
-EXISTING_ASSIGNMENT=$(az role assignment list \
-  --assignee-object-id "$FOUNDRY_MI_PRINCIPAL_ID" \
-  --scope "$SEARCH_RESOURCE_ID" \
-  --query "[?roleDefinitionId=='${ROLE_DEFINITION_ID}'].id | [0]" \
-  -o tsv)
-
-if [ -n "$EXISTING_ASSIGNMENT" ]; then
-  echo "✓ Search Index Data Reader already assigned"
-else
-  az role assignment create \
+if [[ "$ADMIN_PREP" == "true" ]]; then
+  echo "=== [admin] Assigning Search Index Data Reader RBAC to Foundry MI ==="
+  EXISTING_ASSIGNMENT=$(az role assignment list \
     --assignee-object-id "$FOUNDRY_MI_PRINCIPAL_ID" \
-    --assignee-principal-type ServicePrincipal \
-    --role "$SEARCH_INDEX_DATA_READER_ROLE_ID" \
     --scope "$SEARCH_RESOURCE_ID" \
-    --only-show-errors >/dev/null
-  echo "✓ Search Index Data Reader assigned"
+    --query "[?roleDefinitionId=='${ROLE_DEFINITION_ID}'].id | [0]" \
+    -o tsv)
+
+  if [ -n "$EXISTING_ASSIGNMENT" ]; then
+    echo "✓ Search Index Data Reader already assigned"
+  else
+    az role assignment create \
+      --assignee-object-id "$FOUNDRY_MI_PRINCIPAL_ID" \
+      --assignee-principal-type ServicePrincipal \
+      --role "$SEARCH_INDEX_DATA_READER_ROLE_ID" \
+      --scope "$SEARCH_RESOURCE_ID" \
+      --only-show-errors >/dev/null
+    echo "✓ Search Index Data Reader assigned"
+  fi
+else
+  echo "ℹ Skipping role assignment (dev mode). The Foundry MI needs Search Index Data Reader on $SEARCH_SERVICE."
+  echo "  If KB queries fail with 403, ask an admin to run:"
+  echo "    az role assignment create \\"
+  echo "      --assignee-object-id $FOUNDRY_MI_PRINCIPAL_ID \\"
+  echo "      --assignee-principal-type ServicePrincipal \\"
+  echo "      --role $SEARCH_INDEX_DATA_READER_ROLE_ID \\"
+  echo "      --scope $SEARCH_RESOURCE_ID"
+  echo "  Or rerun this script as the admin with --admin-prep."
 fi
 
 echo ""

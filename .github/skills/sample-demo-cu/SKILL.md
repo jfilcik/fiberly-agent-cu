@@ -11,7 +11,7 @@ tags: ['azure', 'content-understanding', 'demo', 'agent', 'foundry-iq', 'classif
 **When invoked, follow this sequence:**
 
 1. **Present the "Introduction" section first** so the user (and audience) sees *why* CU matters in agent scenarios before any clicks happen.
-2. **Show the "Demo Menu"** and ask which demo (A, B, C, or all in order) the user wants to run. Recommend running them in order A → B → C the first time.
+2. **Show the "Demo Menu"** and ask which demo (1, 2, 3, or all in order) the user wants to run. Recommend running them in order 1 → 2 → 3 the first time (runtime first; ingestion is the heavier setup).
 3. For the selected demo, walk through its **Setup check → Key code → Manual steps → What to call out** sections.
 4. **Pause for the user to perform each manual step in the UI** and confirm before moving on.
 5. **Remind the user to use a fresh chat session** between demos. The LLM will otherwise reuse prior context and the "without CU" baseline will look smarter than it really is.
@@ -25,7 +25,7 @@ tags: ['azure', 'content-understanding', 'demo', 'agent', 'foundry-iq', 'classif
 >
 > When a step asks the user to send a prompt that matches one of the suggestion tiles on the Fibey welcome screen, tell them they can either **click the matching tile** or **type the prompt manually** — both produce the same input.
 
-> **Prerequisite:** the `/sample-setup-cu` skill must have been run successfully (CU analyzers created, both Foundry IQ KBs ingested, gateway + UI running). If anything is missing, route the user there first.
+> **Prerequisite:** the `/sample-setup` skill must have been run successfully (CU analyzers created; for Demo 3 specifically, both Foundry IQ KBs ingested; gateway + UI running). If anything is missing, route the user there first.
 
 ---
 
@@ -46,7 +46,7 @@ Most agent demos fall apart on real-world documents:
 | LLM guesses the wrong field from an ambiguous document | **Custom analyzer** with field-level extraction rules (`cu_demo_work_order`) |
 | Agent has no way to know which extraction strategy to use | **Classifier** routes per document type (`cu_demo_classify_and_analyze`) |
 
-The demos below mirror that order: **ingestion first** (CU before the agent ever runs), then **runtime upload**, then a deep dive on the custom analyzer and classifier that powered the runtime demo.
+The demos below are ordered **runtime-first, ingestion-last**: Demo 1 and Demo 2 only need a Foundry account + chat model (fastest setup), while Demo 3 additionally requires Storage + AI Search for the knowledge base.
 
 The repo wires these into the chat UI as toggles so an audience can flip them on/off live.
 
@@ -56,76 +56,17 @@ The repo wires these into the chat UI as toggles so an audience can flip them on
 
 | Demo | Theme | Time | What it proves |
 |---|---|---|---|
-| **A — Foundry IQ Ingestion: minimal vs. standard** | CU at *ingestion* time | ~3 min | CU preserves table structure so KB-backed answers stay correct |
-| **B — Agent upload: None → Parse: prebuilt-layout** | CU at *runtime* upload time | ~3 min | LLM cannot read `.docx` at all without CU; `prebuilt-layout` unblocks the format |
-| **C — Custom Analyzer + Classifier deep dive** | *Why* CU works | ~5 min | Field-level prompts + classifier routing are what beat plain "PDF → markdown" |
+| **1 — Agent upload: None → Parse: prebuilt-layout** | CU at *runtime* upload time | ~3 min | LLM cannot read `.docx` at all without CU; `prebuilt-layout` unblocks the format |
+| **2 — Custom Analyzer + Classifier deep dive** | *Why* CU works | ~5 min | Field-level prompts + classifier routing are what beat plain "PDF → markdown" |
+| **3 — Foundry IQ Ingestion: minimal vs. standard** | CU at *ingestion* time | ~3 min | CU preserves table structure so KB-backed answers stay correct |
 
 > **Always start a new chat session between demos.** Use the "New chat" button in the UI. Otherwise the LLM remembers the correct answer from the previous turn and the "without CU" comparison is invalid.
 
----
-
-## Demo A — Foundry IQ Ingestion (Minimal vs. Standard)
-
-### Background — Foundry IQ, Knowledge Bases, and ingestion
-**Foundry IQ** is Azure AI Foundry's managed retrieval-augmented-generation (RAG) layer. Instead of each agent rolling its own vector store and chunking pipeline, Foundry IQ hosts **Knowledge Bases (KBs)** — searchable indexes built from your documents — and exposes them to agents through an MCP tool. The Fibey agent calls this MCP at runtime to ground answers in source content (procedures, OTDR reports, safety docs) rather than guessing from the LLM's training data.
-
-A KB doesn't read the original PDF on every query; it reads a pre-processed copy. That preprocessing step is called **ingestion**: each source document is parsed, converted to text/markdown, split into chunks, embedded, and indexed. Whatever the ingestion pipeline gets wrong is baked into every future answer — there is no second chance at query time. That is why the *ingestion-time* extraction mode matters so much, and why this demo compares two KBs over the **same** source content with only the extraction mode swapped.
-
-### What CU is solving here
-At ingestion time, a basic PDF→text extractor collapses empty table cells. Numeric values in adjacent columns shift left, so the KB stores wrong data and the agent retrieves wrong data. CU-backed ingestion preserves cell boundaries as HTML, keeping sparse tables faithful.
-
-### Setup check
-- `FOUNDRY_IQ_MINIMAL_MCP_URL` and `FOUNDRY_IQ_STANDARD_MCP_URL` are set in `.env`.
-- Both indexers report `status: success` (see [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md)).
-- The **Foundry IQ Ingestion** selector is visible in the Activity sidebar.
-
-### Key code pieces
-
-- [scripts/setup-knowledge-base.sh](scripts/setup-knowledge-base.sh) — creates two knowledge sources, one with `contentExtractionMode: minimal`, one with `contentExtractionMode: standard` (CU-backed). The mode is immutable after creation.
-- [services/foundry-iq-docs/content-understanding/docs/](services/foundry-iq-docs/content-understanding/docs/) — the sparse OTDR table PDF that exercises the difference.
-- Gateway wiring: [src/fibey/gateway/api_server.py](src/fibey/gateway/api_server.py) reads `foundry_iq_mode` from the request body and forwards it into `run_agent(...)`, which selects the corresponding KB MCP URL.
-
-### Manual demo steps
-1. **`[YOUR ACTION]`** Start a new chat session in the Fibey demo UI.
-2. **`[YOUR ACTION]`** Open [services/foundry-iq-docs/content-understanding/docs/otdr-acceptance-results.pdf](services/foundry-iq-docs/content-understanding/docs/otdr-acceptance-results.pdf) — the source PDF that was ingested into both KBs.
-3. **`[AGENT DOES]`** Render the following table preview directly in your reply (do *not* tell the user to paste it — *you* are showing the audience what CU sees). Introduce it as: "Here are the first rows of the **FIBER-BY-FIBER OTDR MEASUREMENTS** table from the PDF — note the empty `ORL @1310` cell for **F-03**":
-
-   | Fiber ID | Route | Length (m) | Loss @1310 (dB) | Loss @1550 (dB) | ORL @1310 (dB) | ORL @1550 (dB) | Pass / Fail |
-   |---|---|---|---|---|---|---|---|
-   | F-01 | MPOE → IDF-1A | 312 | 0.31 | 0.22 | 48.2 | 47.8 | PASS |
-   | F-02 | MPOE → IDF-1A | 312 | 0.33 | 0.24 | 47.9 | 47.5 | PASS |
-   | F-03 | MPOE → IDF-1B | 448 | 0.44 | 0.31 |  | 46.1 | PASS |
-
-   Then, still in the same reply, direct attention to row **F-03**: the `ORL @1310 (dB)` cell is **empty**, and the adjacent `ORL @1550 (dB)` cell is **46.1**. Announce the question the user is about to ask the Fibey agent: *"What is the ORL reading at 1310nm for fiber F-03?"* The correct answer is that the cell is blank / not recorded — anything that returns `46.1` has silently shifted columns.
-4. **`[YOUR ACTION]`** In the Activity sidebar, set **Foundry IQ Ingestion** to **Minimal**.
-5. **`[YOUR ACTION]`** Send this prompt in the Fibey UI — either **click the suggested-prompt tile** labeled *"Check the KB — what is the ORL reading at 1310nm for fiber F-03?"* on the welcome screen, or type it manually:
-
-   *"Check the KB — what is the ORL reading at 1310nm for fiber F-03?"*
-6. **`[BOTH OBSERVE]`** The answer is roughly **46.1 dB** (wrong — that value belongs to the 1550nm column; the 1310nm cell was blank and got collapsed).
-7. **`[YOUR ACTION]`** Switch **Foundry IQ Ingestion** to **Standard**. The UI auto-resets the chat on mode change — this is intentional. The previous turn contained the correct answer in context, so reusing the chat would let the LLM answer from its own context instead of from the KB, invalidating the comparison. A fresh session forces retrieval to come purely from the Standard KB.
-8. **`[YOUR ACTION]`** Send the **same** prompt again (click the same tile or retype it).
-9. **`[BOTH OBSERVE]`** The model now reports the 1310nm ORL cell was not recorded / is blank.
-
-### What to call out
-- Same KB content, same agent, same prompt — only the ingestion mode changed.
-- `minimal` is the free baseline; `standard` is what makes table-heavy KBs trustworthy.
-- The setting cannot be flipped after ingestion — emphasize this is an *ingestion-time* architectural decision.
-- **Peace of mind at ingestion time.** Once a KB is ingested through CU's `standard` extractor, the presenter (and the business) does not have to keep worrying about each new document type. CU's layout model is industry-leading and handles the messy reality of enterprise content in one pass:
-   - **Tables with spanning cells, sparse cells, and multi-page layouts** are preserved as structured HTML — the exact problem this demo just showed.
-   - **Handwritten + printed text in hundreds of languages**, plus selection marks (checkboxes), barcodes, mathematical formulas (LaTeX), embedded figures/charts with captions, and hyperlinks — all extracted with **grounding** (page + bounding-box coordinates) so downstream agents can cite source.
-   - **Hierarchical sections, paragraph roles, and annotations** (strikethrough, underline, highlight) are kept, so RAG retrieval gets semantic chunks instead of a flat blob.
-   - **Confidence scores** on every extraction enable human-in-the-loop review without re-OCRing the file.
-- Translation for the audience: *"We ingested once, and the KB is now resilient to whatever weird PDF marketing throws at us next quarter — sparse tables, scanned forms, multilingual contracts, the lot."*
-
-### More info before moving on
-- [Azure CU document overview — Key benefits & content extraction](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/document/overview#content-extraction) (the source for the bullets above)
-- [Retrieval-augmented generation with CU](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/retrieval-augmented-generation) — why `standard` ingestion is the recommended pattern for any KB-backed agent
-- [Analyzer templates](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/analyzer-templates) — prebuilt starting points you do **not** have to write from scratch (this is the lead-in to Demos B and C)
-- [Content Understanding Studio](https://aka.ms/cu-studio) — the no-code UI to try this on the audience's own document, live
+> **Demos 1 and 2 only require `sample-setup` with the CU-only path.** Demo 3 requires the full path (CU + Foundry IQ KB).
 
 ---
 
-## Demo B — Agent Upload: None → Parse: prebuilt-layout
+## Demo 1 — Agent Upload: None → Parse: prebuilt-layout
 
 ### Background — Agent Framework and context providers
 **Microsoft Agent Framework** is the open-source Python/.NET SDK this repo uses to build the Fibey agent. It wires up the LLM, the tool calls (Inventory MCP, Work Orders API, Foundry IQ), and the message loop — so the agent code stays small and focused on prompts and tools instead of plumbing.
@@ -174,22 +115,21 @@ The prompt for both steps below is the same. You can **click the suggested-promp
 ### What to do next
 Once the `.docx` parses cleanly, you have two natural follow-ons — pick whichever fits the audience:
 - **Ask the agent to create the work order.** In the same chat, send something like *"Yes, go ahead and create it."* The agent will call the Work Orders API with the extracted fields and confirm the new ID — closing the loop from document → structured data → real action.
-- **Move on to Demo C** to see what happens when `prebuilt-layout` alone is *not* enough — a more adversarial PDF (`work_order_for_custom_analyzer.pdf`) where **Parse: prebuilt-layout** picks the supervisor's name and only the **Classify & Analyze Work Order** mode (custom analyzer + classifier) recovers `J. Martinez` from the `Route → ...` dispatch log.
+- **Move on to Demo 2** to see what happens when `prebuilt-layout` alone is *not* enough — a more adversarial PDF (`work_order_for_custom_analyzer.pdf`) where **Parse: prebuilt-layout** picks the supervisor's name and only the **Classify & Analyze Work Order** mode (custom analyzer + classifier) recovers `J. Martinez` from the `Route → ...` dispatch log.
 
 ### What to call out
 - The `.docx` failure in Step 1 is a real platform limitation, not a contrived bug. CU removes it.
 - Step 2 proves CU `prebuilt-layout` alone is enough to unblock formats the LLM can't natively read — the agent now sees clean markdown instead of a rejected upload.
-- This document is friendly enough that `prebuilt-layout` already produces the right answer. Demo C shows the adversarial case where field-level prompts and a classifier become necessary.
+- This document is friendly enough that `prebuilt-layout` already produces the right answer. Demo 2 shows the adversarial case where field-level prompts and a classifier become necessary.
 
 ### Bonus variants
 - Attach `work_order_scanned.png` (handwritten photo) in **Parse: prebuilt-layout** mode — CU's OCR handles it.
 
 ---
-
-## Demo C — Custom Analyzer + Classifier Deep Dive
+## Demo 2 — Custom Analyzer + Classifier Deep Dive
 
 ### Background — Custom analyzers and classifiers in CU
-Demo B showed `prebuilt-layout` turning a `.docx` into clean markdown. That is enough for "read this file" but not for "extract these fields and call an API". Two CU primitives close that gap:
+Demo 1 showed `prebuilt-layout` turning a `.docx` into clean markdown. That is enough for "read this file" but not for "extract these fields and call an API". Two CU primitives close that gap:
 
 - **Custom analyzer** — a JSON **field schema** layered on top of `prebuilt-layout`. Each field has a name, a type (string / enum / number / array / object), a `GenerationMethod` (`EXTRACT` for verbatim, `CLASSIFY` for an enum, `GENERATE` for a model-reasoned value such as a normalized date or a free-form summary), and a **natural-language description** that tells the CU model exactly where in the document to look. CU returns typed JSON that matches the schema — the agent skips all markdown re-parsing and can pass the result straight to a downstream API (here, `WorkOrderCreate`).
 - **Classifier** — a wrapper analyzer whose job is to decide *what kind of document* the file is and then dispatch to the right analyzer. Each category has its own description (the prompt the classifier reasons over) and an `analyzer_id` to route to. Routing to a custom analyzer means "extract fields"; routing to `prebuilt-layout` means "just give me clean markdown". This is what keeps the agent from force-fitting a safety certificate into a work-order shape.
@@ -256,12 +196,72 @@ Other expected values from the same PDF (all reasoned by the schema, not the LLM
 - Classifiers make the agent's tool selection robust to wrong inputs: a safety certificate will not be force-fit into a work-order shape, it falls through to `prebuilt-layout`.
 
 ---
+## Demo 3 — Foundry IQ Ingestion (Minimal vs. Standard)
+
+### Background — Foundry IQ, Knowledge Bases, and ingestion
+**Foundry IQ** is Azure AI Foundry's managed retrieval-augmented-generation (RAG) layer. Instead of each agent rolling its own vector store and chunking pipeline, Foundry IQ hosts **Knowledge Bases (KBs)** — searchable indexes built from your documents — and exposes them to agents through an MCP tool. The Fibey agent calls this MCP at runtime to ground answers in source content (procedures, OTDR reports, safety docs) rather than guessing from the LLM's training data.
+
+A KB doesn't read the original PDF on every query; it reads a pre-processed copy. That preprocessing step is called **ingestion**: each source document is parsed, converted to text/markdown, split into chunks, embedded, and indexed. Whatever the ingestion pipeline gets wrong is baked into every future answer — there is no second chance at query time. That is why the *ingestion-time* extraction mode matters so much, and why this demo compares two KBs over the **same** source content with only the extraction mode swapped.
+
+### What CU is solving here
+At ingestion time, a basic PDF→text extractor collapses empty table cells. Numeric values in adjacent columns shift left, so the KB stores wrong data and the agent retrieves wrong data. CU-backed ingestion preserves cell boundaries as HTML, keeping sparse tables faithful.
+
+### Setup check
+- `FOUNDRY_IQ_MINIMAL_MCP_URL` and `FOUNDRY_IQ_STANDARD_MCP_URL` are set in `.env`.
+- Both indexers report `status: success` (see [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md)).
+- The **Foundry IQ Ingestion** selector is visible in the Activity sidebar.
+
+### Key code pieces
+
+- [scripts/setup-knowledge-base.sh](scripts/setup-knowledge-base.sh) — creates two knowledge sources, one with `contentExtractionMode: minimal`, one with `contentExtractionMode: standard` (CU-backed). The mode is immutable after creation.
+- [services/foundry-iq-docs/content-understanding/docs/](services/foundry-iq-docs/content-understanding/docs/) — the sparse OTDR table PDF that exercises the difference.
+- Gateway wiring: [src/fibey/gateway/api_server.py](src/fibey/gateway/api_server.py) reads `foundry_iq_mode` from the request body and forwards it into `run_agent(...)`, which selects the corresponding KB MCP URL.
+
+### Manual demo steps
+1. **`[YOUR ACTION]`** Start a new chat session in the Fibey demo UI.
+2. **`[YOUR ACTION]`** Open [services/foundry-iq-docs/content-understanding/docs/otdr-acceptance-results.pdf](services/foundry-iq-docs/content-understanding/docs/otdr-acceptance-results.pdf) — the source PDF that was ingested into both KBs.
+3. **`[AGENT DOES]`** Render the following table preview directly in your reply (do *not* tell the user to paste it — *you* are showing the audience what CU sees). Introduce it as: "Here are the first rows of the **FIBER-BY-FIBER OTDR MEASUREMENTS** table from the PDF — note the empty `ORL @1310` cell for **F-03**":
+
+   | Fiber ID | Route | Length (m) | Loss @1310 (dB) | Loss @1550 (dB) | ORL @1310 (dB) | ORL @1550 (dB) | Pass / Fail |
+   |---|---|---|---|---|---|---|---|
+   | F-01 | MPOE → IDF-1A | 312 | 0.31 | 0.22 | 48.2 | 47.8 | PASS |
+   | F-02 | MPOE → IDF-1A | 312 | 0.33 | 0.24 | 47.9 | 47.5 | PASS |
+   | F-03 | MPOE → IDF-1B | 448 | 0.44 | 0.31 |  | 46.1 | PASS |
+
+   Then, still in the same reply, direct attention to row **F-03**: the `ORL @1310 (dB)` cell is **empty**, and the adjacent `ORL @1550 (dB)` cell is **46.1**. Announce the question the user is about to ask the Fibey agent: *"What is the ORL reading at 1310nm for fiber F-03?"* The correct answer is that the cell is blank / not recorded — anything that returns `46.1` has silently shifted columns.
+4. **`[YOUR ACTION]`** In the Activity sidebar, set **Foundry IQ Ingestion** to **Minimal**.
+5. **`[YOUR ACTION]`** Send this prompt in the Fibey UI — either **click the suggested-prompt tile** labeled *"Check the KB — what is the ORL reading at 1310nm for fiber F-03?"* on the welcome screen, or type it manually:
+
+   *"Check the KB — what is the ORL reading at 1310nm for fiber F-03?"*
+6. **`[BOTH OBSERVE]`** The answer is roughly **46.1 dB** (wrong — that value belongs to the 1550nm column; the 1310nm cell was blank and got collapsed).
+7. **`[YOUR ACTION]`** Switch **Foundry IQ Ingestion** to **Standard**. The UI auto-resets the chat on mode change — this is intentional. The previous turn contained the correct answer in context, so reusing the chat would let the LLM answer from its own context instead of from the KB, invalidating the comparison. A fresh session forces retrieval to come purely from the Standard KB.
+8. **`[YOUR ACTION]`** Send the **same** prompt again (click the same tile or retype it).
+9. **`[BOTH OBSERVE]`** The model now reports the 1310nm ORL cell was not recorded / is blank.
+
+### What to call out
+- Same KB content, same agent, same prompt — only the ingestion mode changed.
+- `minimal` is the free baseline; `standard` is what makes table-heavy KBs trustworthy.
+- The setting cannot be flipped after ingestion — emphasize this is an *ingestion-time* architectural decision.
+- **Peace of mind at ingestion time.** Once a KB is ingested through CU's `standard` extractor, the presenter (and the business) does not have to keep worrying about each new document type. CU's layout model is industry-leading and handles the messy reality of enterprise content in one pass:
+   - **Tables with spanning cells, sparse cells, and multi-page layouts** are preserved as structured HTML — the exact problem this demo just showed.
+   - **Handwritten + printed text in hundreds of languages**, plus selection marks (checkboxes), barcodes, mathematical formulas (LaTeX), embedded figures/charts with captions, and hyperlinks — all extracted with **grounding** (page + bounding-box coordinates) so downstream agents can cite source.
+   - **Hierarchical sections, paragraph roles, and annotations** (strikethrough, underline, highlight) are kept, so RAG retrieval gets semantic chunks instead of a flat blob.
+   - **Confidence scores** on every extraction enable human-in-the-loop review without re-OCRing the file.
+- Translation for the audience: *"We ingested once, and the KB is now resilient to whatever weird PDF marketing throws at us next quarter — sparse tables, scanned forms, multilingual contracts, the lot."*
+
+### More info before moving on
+- [Azure CU document overview — Key benefits & content extraction](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/document/overview#content-extraction) (the source for the bullets above)
+- [Retrieval-augmented generation with CU](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/retrieval-augmented-generation) — why `standard` ingestion is the recommended pattern for any KB-backed agent
+- [Analyzer templates](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/analyzer-templates) — prebuilt starting points you do **not** have to write from scratch (this is the lead-in to Demos B and C)
+- [Content Understanding Studio](https://aka.ms/cu-studio) — the no-code UI to try this on the audience's own document, live
+
+---
 
 ## 🧰 Troubleshooting (quick)
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| CU Mode selector missing | `AZURE_CONTENTUNDERSTANDING_ENDPOINT` unset | Re-run `/sample-setup-cu` |
+| CU Mode selector missing | `AZURE_CONTENTUNDERSTANDING_ENDPOINT` unset | Re-run `/sample-setup` |
 | Foundry IQ Ingestion selector missing | Minimal or Standard MCP URL unset | Re-run `./scripts/setup-knowledge-base.sh --cu-demo` and set the URLs |
 | "Classify & Analyze" returns null fields | `cu_demo_classify_and_analyze` analyzer missing | Re-run the two `content-understanding/tools/create_*.py` scripts |
 | Standard KB answer matches Minimal | Indexer not finished | Check indexer status (`fibey-iq-standard-ks-indexer`) until `itemsProcessed > 0` |
@@ -274,4 +274,4 @@ Other expected values from the same PDF (all reasoned by the schema, not the LLM
 - [README.md](README.md) — fork scope and CU runtime expectations
 - [content-understanding/README.md](content-understanding/README.md) — full document upload walkthrough
 - [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md) — minimal vs. standard KB setup
-- [.github/skills/sample-setup-cu/SKILL.md](.github/skills/sample-setup-cu/SKILL.md) — prerequisite setup skill
+- [.github/skills/sample-setup/SKILL.md](.github/skills/sample-setup/SKILL.md) — prerequisite setup skill

@@ -36,6 +36,12 @@ param toolboxMcpUrl string = ''
 @description('Whether to create the AI Search -> Storage Blob Data Reader role assignment. Not required for the CU demo (Foundry IQ uses Knowledge Base ingestion, not blob-backed Search indexers). Default false to avoid RBAC permission failures during azd up; enable only if you add blob-backed Search indexers.')
 param enableSearchBlobReaderRoleAssignment bool = false
 
+@description('Provision Foundry IQ-supporting resources (Storage + AI Search). Required for sample-demo-cu Demo 3 (KB ingestion). Disable for CU-only setups.')
+param includeFoundryIq bool = true
+
+@description('Provision the hosted runtime stack (ACR + Container Apps environment + 5 container apps). Disable when running AGENT_MODE=local-direct, which is the default for the CU demo.')
+param includeHostedRuntime bool = true
+
 var resourceToken = toLower(uniqueString(subscription().subscriptionId, resourceGroup().id, environmentName))
 var sanitizedEnvironmentName = replace(toLower(environmentName), '-', '')
 
@@ -51,7 +57,7 @@ var inventoryMcpAppName = '${environmentName}-inventory-mcp'
 var workOrdersApiAppName = '${environmentName}-work-orders-api'
 var statusDashboardAppName = '${environmentName}-status-dashboard'
 
-module logAnalytics 'modules/log-analytics.bicep' = {
+module logAnalytics 'modules/log-analytics.bicep' = if (includeHostedRuntime) {
   name: 'log-analytics'
   params: {
     name: logAnalyticsWorkspaceName
@@ -60,7 +66,7 @@ module logAnalytics 'modules/log-analytics.bicep' = {
   }
 }
 
-module containerRegistry 'modules/container-registry.bicep' = {
+module containerRegistry 'modules/container-registry.bicep' = if (includeHostedRuntime) {
   name: 'container-registry'
   params: {
     name: registryName
@@ -69,7 +75,7 @@ module containerRegistry 'modules/container-registry.bicep' = {
   }
 }
 
-module storageAccount 'modules/storage-account.bicep' = {
+module storageAccount 'modules/storage-account.bicep' = if (includeFoundryIq) {
   name: 'storage-account'
   params: {
     name: storageAccountName
@@ -78,7 +84,7 @@ module storageAccount 'modules/storage-account.bicep' = {
   }
 }
 
-module aiSearch 'modules/ai-search.bicep' = {
+module aiSearch 'modules/ai-search.bicep' = if (includeFoundryIq) {
   name: 'ai-search'
   params: {
     name: searchServiceName
@@ -89,11 +95,11 @@ module aiSearch 'modules/ai-search.bicep' = {
 }
 
 // Grant AI Search managed identity "Storage Blob Data Reader" on the storage account
-resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existing = if (includeFoundryIq) {
   name: storageAccountName
 }
 
-resource searchBlobReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableSearchBlobReaderRoleAssignment) {
+resource searchBlobReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (includeFoundryIq && enableSearchBlobReaderRoleAssignment) {
   name: guid(storageAccountRef.id, searchServiceName, 'Storage Blob Data Reader')
   scope: storageAccountRef
   properties: {
@@ -103,7 +109,7 @@ resource searchBlobReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
-module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
+module containerAppsEnvironment 'modules/container-apps-environment.bicep' = if (includeHostedRuntime) {
   name: 'container-apps-environment'
   params: {
     name: containerAppsEnvironmentName
@@ -114,7 +120,7 @@ module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
   }
 }
 
-module inventoryMcp 'modules/container-app.bicep' = {
+module inventoryMcp 'modules/container-app.bicep' = if (includeHostedRuntime) {
   name: 'inventory-mcp-app'
   params: {
     name: inventoryMcpAppName
@@ -131,7 +137,7 @@ module inventoryMcp 'modules/container-app.bicep' = {
   }
 }
 
-module workOrdersApi 'modules/container-app.bicep' = {
+module workOrdersApi 'modules/container-app.bicep' = if (includeHostedRuntime) {
   name: 'work-orders-api-app'
   params: {
     name: workOrdersApiAppName
@@ -148,7 +154,7 @@ module workOrdersApi 'modules/container-app.bicep' = {
   }
 }
 
-module statusDashboard 'modules/container-app.bicep' = {
+module statusDashboard 'modules/container-app.bicep' = if (includeHostedRuntime) {
   name: 'status-dashboard-app'
   params: {
     name: statusDashboardAppName
@@ -165,7 +171,7 @@ module statusDashboard 'modules/container-app.bicep' = {
   }
 }
 
-module gateway 'modules/container-app.bicep' = {
+module gateway 'modules/container-app.bicep' = if (includeHostedRuntime) {
   name: 'gateway-app'
   params: {
     name: gatewayAppName
@@ -207,7 +213,7 @@ module gateway 'modules/container-app.bicep' = {
   }
 }
 
-module ui 'modules/container-app.bicep' = {
+module ui 'modules/container-app.bicep' = if (includeHostedRuntime) {
   name: 'ui-app'
   params: {
     name: uiAppName
@@ -230,28 +236,29 @@ module ui 'modules/container-app.bicep' = {
 }
 
 @description('Fully qualified domain name for the ui container app.')
-output uiFqdn string = ui.outputs.fqdn
+output uiFqdn string = includeHostedRuntime ? ui.outputs.fqdn : ''
 
 @description('Fully qualified domain name for the gateway container app.')
-output gatewayFqdn string = gateway.outputs.fqdn
+output gatewayFqdn string = includeHostedRuntime ? gateway.outputs.fqdn : ''
 
 @description('Fully qualified domain name for the inventory-mcp container app.')
-output inventoryMcpFqdn string = inventoryMcp.outputs.fqdn
+output inventoryMcpFqdn string = includeHostedRuntime ? inventoryMcp.outputs.fqdn : ''
 
 @description('Fully qualified domain name for the work-orders-api container app.')
-output workOrdersApiFqdn string = workOrdersApi.outputs.fqdn
+output workOrdersApiFqdn string = includeHostedRuntime ? workOrdersApi.outputs.fqdn : ''
 
 @description('Fully qualified domain name for the status-dashboard container app.')
-output statusDashboardFqdn string = statusDashboard.outputs.fqdn
+output statusDashboardFqdn string = includeHostedRuntime ? statusDashboard.outputs.fqdn : ''
 
-@description('Storage account name for FoundryIQ documents.')
-output storageAccountName string = storageAccount.outputs.name
+@description('Storage account name for FoundryIQ documents (empty if includeFoundryIq=false).')
+output storageAccountName string = includeFoundryIq ? storageAccount.outputs.name : ''
 
-@description('Azure AI Search service name.')
-output searchServiceName string = aiSearch.outputs.name
+@description('Azure AI Search service name (empty if includeFoundryIq=false).')
+output searchServiceName string = includeFoundryIq ? aiSearch.outputs.name : ''
 
-@description('Azure AI Search endpoint.')
-output searchServiceEndpoint string = aiSearch.outputs.endpoint
+@description('Azure AI Search endpoint (empty if includeFoundryIq=false).')
+output searchServiceEndpoint string = includeFoundryIq ? aiSearch.outputs.endpoint : ''
 
-@description('Container registry login server used for service images.')
-output registryLoginServer string = containerRegistry.outputs.loginServer
+@description('Container registry login server used for service images (empty if includeHostedRuntime=false).')
+output registryLoginServer string = includeHostedRuntime ? containerRegistry.outputs.loginServer : ''
+

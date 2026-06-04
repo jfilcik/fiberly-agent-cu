@@ -1,5 +1,8 @@
 # Fibey Field Ops
 
+> 🤖 **Using an AI coding assistant?** See [`AGENTS.md`](AGENTS.md) for the
+> entry point. TL;DR: invoke the `sample-setup` skill.
+
 This repository is a fork of https://github.com/dbarkol/fibey-agent.
 The original Fibey demo showcases a fiber field-operations assistant that uses
 an Azure AI Foundry agent with Toolbox-connected operational services.
@@ -76,7 +79,7 @@ The diagram below shows this fork's `local-direct` mode.
 
 Use Copilot Chat command directly:
 
-- `/sample-setup-cu`
+- `/sample-setup`
 
 The skill will guide and execute (with your confirmation) the full CU demo setup:
 
@@ -118,7 +121,7 @@ The CU demo flow expects these variables to be configured:
 | `FOUNDRY_IQ_MINIMAL_MCP_URL` | Foundry IQ minimal ingestion endpoint |
 | `FOUNDRY_IQ_STANDARD_MCP_URL` | Foundry IQ standard (CU-enhanced) ingestion endpoint |
 
-The `/sample-setup-cu` skill sets up and verifies this flow.
+The `/sample-setup` skill sets up and verifies this flow.
 
 ## Local endpoints
 
@@ -135,7 +138,7 @@ The `/sample-setup-cu` skill sets up and verifies this flow.
 |---|---|
 | [content-understanding/README.md](content-understanding/README.md) | End-to-end CU demo walkthrough and analyzer commands |
 | [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md) | Foundry IQ minimal vs standard ingestion setup details |
-| [.github/skills/sample-setup-cu/SKILL.md](.github/skills/sample-setup-cu/SKILL.md) | Copilot skill playbook used by `/sample-setup-cu` |
+| [.github/skills/sample-setup/SKILL.md](.github/skills/sample-setup/SKILL.md) | Copilot skill playbook used by `/sample-setup` |
 | [.github/skills/sample-demo-cu/SKILL.md](.github/skills/sample-demo-cu/SKILL.md) | Copilot skill playbook used by `/sample-demo-cu` to run the CU demo scenarios |
 
 ## Need the original full-platform guidance?
