@@ -69,7 +69,8 @@ Run three probes before any mutation:
 ```
 az storage container list --account-name <storage> --auth-mode login -o table
 ```
-Failure → ask admin for `Storage Blob Data Contributor` on storage. Stop.
+Failure → **emit the Admin Request Block from `sample-setup` Stage 7**
+with `Storage Blob Data Contributor` on storage pre-filled. Stop.
 
 **Search** (need AAD enabled on Search service first; see Step 1a):
 - **Bash**:
@@ -84,7 +85,9 @@ Failure → ask admin for `Storage Blob Data Contributor` on storage. Stop.
   Invoke-RestMethod -Headers @{Authorization = "Bearer $token"} `
     -Uri "https://<search>.search.windows.net/servicestats?api-version=2024-07-01"
   ```
-Failure → ask admin for `Search Index Data Contributor` on Search. Stop.
+Failure → **emit the Admin Request Block from `sample-setup` Stage 7**
+with `Search Index Data Contributor` on Search pre-filled (and add the
+"enable AAD auth" command from Step 1a if it's also needed). Stop.
 
 ### Step 1a — (Admin only) Enable AAD auth on Search
 
@@ -94,7 +97,9 @@ Once per service. Skip if already done.
 az search service update --name <search> --resource-group <rg> --auth-options aad
 ```
 
-Dev track: surface this command for admin to run. Stop until done.
+Dev track: **emit the Admin Request Block from `sample-setup` Stage 7**,
+adding the `az search service update --auth-options aad` command above
+to the admin's task list. Stop until admin confirms it's been run.
 
 ### Step 2 — Run KB setup script
 
@@ -132,7 +137,10 @@ Once per Foundry account. Skip if already done.
 This assigns `Search Index Data Reader` to the Foundry project MI on the
 Search service. Without this, KB MCP queries from the agent will 403.
 
-Dev track: surface this command for admin to run if KB queries fail.
+Dev track: **emit the Admin Request Block from `sample-setup` Stage 7**
+including the `./scripts/setup-knowledge-base.sh --admin-prep` line.
+This is the one-time `Search Index Data Reader` assignment for the
+Foundry MI; without it, KB MCP queries from the agent will 403.
 
 ### Step 4 — Verify both indexers reach `success`
 

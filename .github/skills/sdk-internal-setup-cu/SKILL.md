@@ -80,9 +80,9 @@ Probe (list analyzers, read-only):
     -Uri "$($env:AZURE_CONTENTUNDERSTANDING_ENDPOINT)contentunderstanding/analyzers?api-version=2024-12-01-preview"
   ```
 
-If 401/403: tell the user to ask their admin for `Cognitive Services User`
-on the Foundry account. Show the exact `az role assignment create` line
-the admin should run. Stop.
+If 401/403: **emit the Admin Request Block from `sample-setup` Stage 7**
+with the failing role (`Cognitive Services User` on the Foundry account)
+pre-filled. Do not improvise an ask-admin message. Stop after emitting.
 
 ### Step 2 — Verify or create chat model deployment
 
@@ -131,8 +131,10 @@ Confirm, then run:
   uv run python content-understanding/tools/create_classify_and_analyze.py
   ```
 
-If either fails with 401/403: surface the role gap (Cognitive Services User
-on Foundry account) and stop.
+If either fails with 401/403: **emit the Admin Request Block from
+`sample-setup` Stage 7** with the failing role pre-filled (`Cognitive
+Services User` on Foundry account for CU 403; `Azure AI User` on the
+project for model-deployment-list 403). Stop after emitting.
 
 ### Step 5 — Hand control back to orchestrator
 
