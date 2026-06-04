@@ -72,7 +72,7 @@ output contentUnderstandingEndpoint string = foundryAccount.outputs.contentUnder
 @description('Chat model deployment name. Set as FOUNDRY_MODEL and AZURE_AI_MODEL_DEPLOYMENT_NAME in .env.')
 output chatModelDeploymentName string = chatModel.outputs.name
 
-@description('Resource ID of the Foundry account (used by sample-setup for role assignment guidance).')
+@description('Resource ID of the Foundry account (used by sample-setup-cu for role assignment guidance).')
 output foundryAccountId string = foundryAccount.outputs.id
 
 @description('Resource ID of the Foundry project.')

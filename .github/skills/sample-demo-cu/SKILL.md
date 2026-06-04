@@ -25,7 +25,7 @@ tags: ['azure', 'content-understanding', 'demo', 'agent', 'foundry-iq', 'classif
 >
 > When a step asks the user to send a prompt that matches one of the suggestion tiles on the Fibey welcome screen, tell them they can either **click the matching tile** or **type the prompt manually** — both produce the same input.
 
-> **Prerequisite:** the `/sample-setup` skill must have been run successfully (CU analyzers created; for Demo 3 specifically, both Foundry IQ KBs ingested; gateway + UI running). If anything is missing, route the user there first.
+> **Prerequisite:** the `/sample-setup-cu` skill must have been run successfully (CU analyzers created; for Demo 3 specifically, both Foundry IQ KBs ingested; gateway + UI running). If anything is missing, route the user there first.
 
 ---
 
@@ -62,7 +62,7 @@ The repo wires these into the chat UI as toggles so an audience can flip them on
 
 > **Always start a new chat session between demos.** Use the "New chat" button in the UI. Otherwise the LLM remembers the correct answer from the previous turn and the "without CU" comparison is invalid.
 
-> **Demos 1 and 2 only require `sample-setup` with the CU-only path.** Demo 3 requires the full path (CU + Foundry IQ KB).
+> **Demos 1 and 2 only require `sample-setup-cu` with the CU-only path.** Demo 3 requires the full path (CU + Foundry IQ KB).
 
 ---
 
@@ -261,7 +261,7 @@ At ingestion time, a basic PDF→text extractor collapses empty table cells. Num
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| CU Mode selector missing | `AZURE_CONTENTUNDERSTANDING_ENDPOINT` unset | Re-run `/sample-setup` |
+| CU Mode selector missing | `AZURE_CONTENTUNDERSTANDING_ENDPOINT` unset | Re-run `/sample-setup-cu` |
 | Foundry IQ Ingestion selector missing | Minimal or Standard MCP URL unset | Re-run `./scripts/setup-knowledge-base.sh --cu-demo` and set the URLs |
 | "Classify & Analyze" returns null fields | `cu_demo_classify_and_analyze` analyzer missing | Re-run the two `content-understanding/tools/create_*.py` scripts |
 | Standard KB answer matches Minimal | Indexer not finished | Check indexer status (`fibey-iq-standard-ks-indexer`) until `itemsProcessed > 0` |
@@ -274,4 +274,4 @@ At ingestion time, a basic PDF→text extractor collapses empty table cells. Num
 - [README.md](README.md) — fork scope and CU runtime expectations
 - [content-understanding/README.md](content-understanding/README.md) — full document upload walkthrough
 - [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md) — minimal vs. standard KB setup
-- [.github/skills/sample-setup/SKILL.md](.github/skills/sample-setup/SKILL.md) — prerequisite setup skill
+- [.github/skills/sample-setup-cu/SKILL.md](.github/skills/sample-setup-cu/SKILL.md) — prerequisite setup skill

@@ -1,6 +1,6 @@
 ---
 name: "SDK Internal — CU Setup"
-description: "Internal sub-skill that configures CU endpoint, model deployment, and analyzers for Demo 1 + 2. Invoked by sample-setup. Do not invoke directly."
+description: "Internal sub-skill that configures CU endpoint, model deployment, and analyzers for Demo 1 + 2. Invoked by sample-setup-cu. Do not invoke directly."
 tags: ['internal', 'content-understanding', 'setup']
 ---
 
@@ -8,13 +8,13 @@ tags: ['internal', 'content-understanding', 'setup']
 
 > ⚠ **Internal sub-skill.** If a user invoked this directly, stop and reply:
 >
-> > "This is an internal setup sub-skill. Please invoke the `sample-setup`
+> > "This is an internal setup sub-skill. Please invoke the `sample-setup-cu`
 > > skill instead — it runs preflight (OS detect, role probe, region check)
-> > and routes here with the right context. Re-run with `/sample-setup`."
+> > and routes here with the right context. Re-run with `/sample-setup-cu`."
 
 ## Inputs (from orchestrator)
 
-This skill assumes `sample-setup` has already collected and passed:
+This skill assumes `sample-setup-cu` has already collected and passed:
 
 - `os` — `windows` / `macos` / `linux`
 - `subscriptionId`, `tenantId`
@@ -25,7 +25,7 @@ This skill assumes `sample-setup` has already collected and passed:
 - `roleProbe` — JSON with detected roles per scope
 
 If any required input is missing, stop and tell the user to re-run
-`sample-setup`.
+`sample-setup-cu`.
 
 ## Scope (narrow)
 
@@ -80,7 +80,7 @@ Probe (list analyzers, read-only):
     -Uri "$($env:AZURE_CONTENTUNDERSTANDING_ENDPOINT)contentunderstanding/analyzers?api-version=2024-12-01-preview"
   ```
 
-If 401/403: **emit the Admin Request Block from `sample-setup` Stage 7**
+If 401/403: **emit the Admin Request Block from `sample-setup-cu` Stage 7**
 with the failing role (`Cognitive Services User` on the Foundry account)
 pre-filled. Do not improvise an ask-admin message. Stop after emitting.
 
@@ -132,13 +132,13 @@ Confirm, then run:
   ```
 
 If either fails with 401/403: **emit the Admin Request Block from
-`sample-setup` Stage 7** with the failing role pre-filled (`Cognitive
+`sample-setup-cu` Stage 7** with the failing role pre-filled (`Cognitive
 Services User` on Foundry account for CU 403; `Azure AI User` on the
 project for model-deployment-list 403). Stop after emitting.
 
 ### Step 5 — Hand control back to orchestrator
 
-Report back to `sample-setup`:
+Report back to `sample-setup-cu`:
 - `success: true`
 - `envWritten: [AZURE_CONTENTUNDERSTANDING_ENDPOINT, FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_MODEL, AZURE_AI_MODEL_DEPLOYMENT_NAME]`
 - `analyzersCreated: [cu_demo_work_order, cu_demo_classify_and_analyze]`

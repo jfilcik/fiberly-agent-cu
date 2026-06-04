@@ -21,26 +21,26 @@ trips up most users.
 
 | User asks for | Invoke | Notes |
 |---|---|---|
-| "Set up this demo" / first-time use / `azd up` | `sample-setup` | Single entry point. Owns preflight + routing. |
-| "Show me CU" / "Demo CU to my team" | `sample-demo-cu` | Requires `sample-setup` to have run. |
-| "Fix this 403 / RBAC error" | `sample-setup` | Its preflight diagnoses role gaps. |
+| "Set up this demo" / first-time use / `azd up` | `sample-setup-cu` | Single entry point. Owns preflight + routing. |
+| "Show me CU" / "Demo CU to my team" | `sample-demo-cu` | Requires `sample-setup-cu` to have run. |
+| "Fix this 403 / RBAC error" | `sample-setup-cu` | Its preflight diagnoses role gaps. |
 
 ## Skill map
 
 | Skill | User-invokable? | Purpose |
 |---|---|---|
-| `sample-setup` | ✅ **Start here** | Concept primer + shared preflight + routes to internal sub-skills |
+| `sample-setup-cu` | ✅ **Start here** | Concept primer + shared preflight + routes to internal sub-skills |
 | `sample-demo-cu` | ✅ | Guided 3-demo walkthrough (Runtime layout → Custom analyzer → Foundry IQ ingestion) |
-| `sdk-internal-setup-cu` | ❌ Internal | CU endpoint + analyzers only. Called by `sample-setup`. |
-| `sdk-internal-setup-foundry-iq` | ❌ Internal | KB ingestion (Storage + Search + Foundry connections). Called by `sample-setup`. |
+| `sdk-internal-setup-cu` | ❌ Internal | CU endpoint + analyzers only. Called by `sample-setup-cu`. |
+| `sdk-internal-setup-foundry-iq` | ❌ Internal | KB ingestion (Storage + Search + Foundry connections). Called by `sample-setup-cu`. |
 | `sample-internal-*` | ⚠ Maintainers | Repo internals (toolbox, UI designer, etc.) |
 
 If a user invokes an `sdk-internal-*` skill directly, redirect them to
-`sample-setup` and stop — the internal skills assume preflight already ran.
+`sample-setup-cu` and stop — the internal skills assume preflight already ran.
 
 ## Hard rules for the agent
 
-1. **Always run `sample-setup` preflight before touching Azure.** It is the
+1. **Always run `sample-setup-cu` preflight before touching Azure.** It is the
    single source of truth for OS, subscription, Foundry endpoint, and the
    user's role classification (Admin / Dev / Mixed / None).
 2. **Never run `azd up` directly.** Let the skill decide. CU-only path uses
@@ -74,11 +74,11 @@ Two distinct planes. Confusing them is the #1 cause of 403 in this repo.
 
 **Developer workflow target**: a developer should be able to run the demo
 with only data-plane (tenant) roles, no management-plane keys. The
-`sample-setup` skill enforces this split.
+`sample-setup-cu` skill enforces this split.
 
 ## Where to learn more
 
 - `README.md` — fork scope and CU runtime expectations
-- `.github/skills/sample-setup/SKILL.md` — the entry-point skill
+- `.github/skills/sample-setup-cu/SKILL.md` — the entry-point skill
 - `.github/skills/sample-demo-cu/SKILL.md` — the demo walkthrough
 - `services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md` — KB internals

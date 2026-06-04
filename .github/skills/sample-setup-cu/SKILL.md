@@ -4,7 +4,7 @@ description: "User-facing entry point for setting up the CU demo fork. Explains 
 tags: ['azure', 'content-understanding', 'setup', 'orchestrator', 'rbac', 'preflight']
 ---
 
-# sample-setup — CU Demo Orchestrator
+# sample-setup-cu — CU Demo Orchestrator
 
 You are the single entry point for setting up this fork. **Never run setup
 commands yourself before this skill's preflight completes.** Sub-skills
@@ -343,7 +343,7 @@ Developer identity to grant access to:
   Object ID: <oid>
 
 Missing access (run these in order, then tell the developer to re-login
-and re-run /sample-setup after ~5 minutes for role propagation):
+and re-run /sample-setup-cu after ~5 minutes for role propagation):
 
 # --- Reader on RG (only if "Reader on RG" probe failed; recommended for discovery convenience) ---
 az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
@@ -378,7 +378,7 @@ az role assignment create --assignee-object-id <oid> --assignee-principal-type U
 After all commands complete and ~5 minutes have passed for RBAC
 propagation, the developer can run:
     az logout && az login
-    /sample-setup
+    /sample-setup-cu
 and continue without further admin involvement.
 
 Why these roles (in plain language):

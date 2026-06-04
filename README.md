@@ -1,7 +1,7 @@
 # Fibey Field Ops
 
 > 🤖 **Using an AI coding assistant?** See [`AGENTS.md`](AGENTS.md) for the
-> entry point. TL;DR: invoke the `sample-setup` skill.
+> entry point. TL;DR: invoke the `sample-setup-cu` skill.
 
 This repository is a fork of https://github.com/dbarkol/fibey-agent.
 The original Fibey demo showcases a fiber field-operations assistant that uses
@@ -77,39 +77,44 @@ The diagram below shows this fork's `local-direct` mode.
 
 ## Quickstart (recommended)
 
-Use Copilot Chat command directly:
+Use the Copilot Chat command from any agent (VS Code Copilot, Cursor, Claude Code, etc.):
 
-- `/sample-setup`
+- **`/sample-setup-cu`** — single entry point for setup
 
-The skill will guide and execute (with your confirmation) the full CU demo setup:
+The orchestrator skill walks you through, in order:
 
-1. Install dependencies and bootstrap local `.env`
-2. Check CU prerequisites from Microsoft Learn
-3. Update `.env` CU endpoint values
-4. Confirm Foundry endpoint readiness (or offer `azd up`)
-5. Run `./scripts/setup-knowledge-base.sh --cu-demo`
-6. Verify both CU ingestion indexers are ready
-7. Create CU demo analyzers
-8. Start local-direct services and run health checks
+1. **Concept primer** — 3 CU demos, what each needs, and a plain-language Azure role guide (the landlord / building-manager / tenant metaphor that makes 403s obvious).
+2. **Shared preflight** — OS detection (Windows PowerShell or macOS/Linux Bash, **no Git Bash/WSL needed**), `az login`, subscription, and one batched probe across CU + Foundry + Storage + Search data planes.
+3. **Role classification** — auto-detects Admin / Dev / Mixed / None track. If you're a dev missing roles, it emits a single copy-pasteable **Admin Request Block** with only the roles you actually need.
+4. **Path selection** — pick `Demos 1+2 only` (fastest — Foundry account + chat model only) or `all three` (adds Storage + AI Search for the KB demo).
+5. **Sub-skill execution** — internal `sdk-internal-setup-cu` (CU endpoint + analyzers) and optionally `sdk-internal-setup-foundry-iq` (KB ingestion) run with data-plane auth only — no `listKeys`, no admin-key, no role-assignment commands.
+
+**What you don't need (anymore):**
+- `Contributor` on the subscription (`Reader` on the RG is enough for the dev path — and even that is just a convenience).
+- `User Access Administrator` (only the one-time `--admin-prep` step needs it, and that's run by your admin).
+- `Storage Account Contributor` (script uses `--auth-mode login`).
+- Search admin-key (script uses AAD Bearer tokens).
+- Git Bash or WSL on Windows (skill emits PowerShell + uses `.ps1` siblings of every script).
 
 After setup, open the UI:
 
 - http://localhost:5173
 
-Once setup is complete, run the interactive demo walkthrough:
+Then run the interactive demo walkthrough:
 
-- `/sample-demo-cu`
+- **`/sample-demo-cu`**
 
-This skill drives three CU demos in order — Foundry IQ Minimal vs. Standard · Azure CU ingestion, agent upload modes (None → Parse: prebuilt-layout), and a Classify & Analyze Work Order deep dive — with manual steps and talking points for each.
+This skill drives the three CU demos in order — runtime `prebuilt-layout` (`.docx` unblock), custom analyzer + classifier (adversarial PDF), and Foundry IQ minimal vs. standard ingestion (table preservation in KB) — with manual steps and talking points for each.
 
 ## Prerequisites (minimum)
 
 - Python 3.12+
 - Node.js 20+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-
 - Azure CLI (`az`)
-- Azure Developer CLI (`azd`) when provisioning/updating Azure resources
+- Azure Developer CLI (`azd`) — only needed if you're the admin provisioning resources (dev track skips it)
+- **Windows**: PowerShell 5.1+ (ships with Windows 10/11). No Git Bash or WSL required.
+- **macOS / Linux**: Bash 4+.
 
 ## CU runtime expectations
 
@@ -121,7 +126,7 @@ The CU demo flow expects these variables to be configured:
 | `FOUNDRY_IQ_MINIMAL_MCP_URL` | Foundry IQ minimal ingestion endpoint |
 | `FOUNDRY_IQ_STANDARD_MCP_URL` | Foundry IQ standard (CU-enhanced) ingestion endpoint |
 
-The `/sample-setup` skill sets up and verifies this flow.
+The `/sample-setup-cu` skill sets up and verifies this flow.
 
 ## Local endpoints
 
@@ -136,9 +141,12 @@ The `/sample-setup` skill sets up and verifies this flow.
 
 | Doc | When to read it |
 |---|---|
+| [AGENTS.md](AGENTS.md) | **AI assistants — start here.** Skill map + hard rules + role primer. |
 | [content-understanding/README.md](content-understanding/README.md) | End-to-end CU demo walkthrough and analyzer commands |
 | [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md) | Foundry IQ minimal vs standard ingestion setup details |
-| [.github/skills/sample-setup/SKILL.md](.github/skills/sample-setup/SKILL.md) | Copilot skill playbook used by `/sample-setup` |
+| [.github/skills/sample-setup-cu/SKILL.md](.github/skills/sample-setup-cu/SKILL.md) | Orchestrator skill — concept primer, preflight, role probing, routing |
+| [.github/skills/sdk-internal-setup-cu/SKILL.md](.github/skills/sdk-internal-setup-cu/SKILL.md) | Internal sub-skill — CU endpoint + analyzers (Demos 1 + 2) |
+| [.github/skills/sdk-internal-setup-foundry-iq/SKILL.md](.github/skills/sdk-internal-setup-foundry-iq/SKILL.md) | Internal sub-skill — Foundry IQ KB (Demo 3) |
 | [.github/skills/sample-demo-cu/SKILL.md](.github/skills/sample-demo-cu/SKILL.md) | Copilot skill playbook used by `/sample-demo-cu` to run the CU demo scenarios |
 
 ## Need the original full-platform guidance?

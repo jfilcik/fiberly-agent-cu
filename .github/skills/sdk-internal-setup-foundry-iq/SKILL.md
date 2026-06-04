@@ -1,6 +1,6 @@
 ---
 name: "SDK Internal — Foundry IQ Setup"
-description: "Internal sub-skill that configures Foundry IQ KB (Storage + AI Search + connections) for Demo 3. Invoked by sample-setup after sdk-internal-setup-cu. Do not invoke directly."
+description: "Internal sub-skill that configures Foundry IQ KB (Storage + AI Search + connections) for Demo 3. Invoked by sample-setup-cu after sdk-internal-setup-cu. Do not invoke directly."
 tags: ['internal', 'content-understanding', 'foundry-iq', 'knowledge-base', 'setup']
 ---
 
@@ -8,13 +8,13 @@ tags: ['internal', 'content-understanding', 'foundry-iq', 'knowledge-base', 'set
 
 > ⚠ **Internal sub-skill.** If a user invoked this directly, stop and reply:
 >
-> > "This is an internal setup sub-skill. Please invoke the `sample-setup`
+> > "This is an internal setup sub-skill. Please invoke the `sample-setup-cu`
 > > skill instead — it runs preflight (OS detect, role probe, region check)
-> > and ensures `sdk-internal-setup-cu` ran first. Re-run with `/sample-setup`."
+> > and ensures `sdk-internal-setup-cu` ran first. Re-run with `/sample-setup-cu`."
 
 ## Inputs (from orchestrator)
 
-Assumes `sample-setup` has run preflight and `sdk-internal-setup-cu` has
+Assumes `sample-setup-cu` has run preflight and `sdk-internal-setup-cu` has
 completed. Inherits:
 
 - `os`, `subscriptionId`, `tenantId`
@@ -25,7 +25,7 @@ completed. Inherits:
 - `azureResourceGroup`
 - `track` — `admin` / `dev` / `mixed`
 
-If any missing, stop and tell user to re-run `sample-setup`.
+If any missing, stop and tell user to re-run `sample-setup-cu`.
 
 ## Scope (narrow)
 
@@ -69,7 +69,7 @@ Run three probes before any mutation:
 ```
 az storage container list --account-name <storage> --auth-mode login -o table
 ```
-Failure → **emit the Admin Request Block from `sample-setup` Stage 7**
+Failure → **emit the Admin Request Block from `sample-setup-cu` Stage 7**
 with `Storage Blob Data Contributor` on storage pre-filled. Stop.
 
 **Search** (need AAD enabled on Search service first; see Step 1a):
@@ -85,7 +85,7 @@ with `Storage Blob Data Contributor` on storage pre-filled. Stop.
   Invoke-RestMethod -Headers @{Authorization = "Bearer $token"} `
     -Uri "https://<search>.search.windows.net/servicestats?api-version=2024-07-01"
   ```
-Failure → **emit the Admin Request Block from `sample-setup` Stage 7**
+Failure → **emit the Admin Request Block from `sample-setup-cu` Stage 7**
 with `Search Index Data Contributor` on Search pre-filled (and add the
 "enable AAD auth" command from Step 1a if it's also needed). Stop.
 
@@ -97,7 +97,7 @@ Once per service. Skip if already done.
 az search service update --name <search> --resource-group <rg> --auth-options aad
 ```
 
-Dev track: **emit the Admin Request Block from `sample-setup` Stage 7**,
+Dev track: **emit the Admin Request Block from `sample-setup-cu` Stage 7**,
 adding the `az search service update --auth-options aad` command above
 to the admin's task list. Stop until admin confirms it's been run.
 
@@ -137,7 +137,7 @@ Once per Foundry account. Skip if already done.
 This assigns `Search Index Data Reader` to the Foundry project MI on the
 Search service. Without this, KB MCP queries from the agent will 403.
 
-Dev track: **emit the Admin Request Block from `sample-setup` Stage 7**
+Dev track: **emit the Admin Request Block from `sample-setup-cu` Stage 7**
 including the `./scripts/setup-knowledge-base.sh --admin-prep` line.
 This is the one-time `Search Index Data Reader` assignment for the
 Foundry MI; without it, KB MCP queries from the agent will 403.
@@ -166,7 +166,7 @@ Write:
 
 ### Step 6 — Hand control back to orchestrator
 
-Report back to `sample-setup`:
+Report back to `sample-setup-cu`:
 - `success: true`
 - `envWritten: [FOUNDRY_IQ_MINIMAL_MCP_URL, FOUNDRY_IQ_STANDARD_MCP_URL, AZURE_SEARCH_ENDPOINT]`
 - `indexers: { minimal: <status>, standard: <status> }`
