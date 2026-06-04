@@ -87,7 +87,7 @@ The orchestrator skill walks you through, in order:
 2. **Preflight** — OS detection (Windows PowerShell or macOS/Linux Bash, no Git Bash/WSL needed), `az login`, subscription, and Foundry endpoint discovery.
 3. **Path selection** — pick `Demos 1+2 only` (fastest — Foundry account + chat model only) or `all three` (adds Storage + AI Search for the KB demo). Each option lists the exact roles it needs up front.
 4. **Role probe (scoped to your path)** — auto-detects Admin / Dev / Mixed / None track. If you're a dev missing roles, it emits a single copy-pasteable **Admin Request Block** with only the roles you actually need.
-5. **Sub-skill execution** — internal `sdk-internal-setup-cu` (CU endpoint + analyzers) and optionally `sdk-internal-setup-foundry-iq` (KB ingestion) run with data-plane auth only.
+5. **Execute the chosen modules** — the orchestrator loads `reference/cu-endpoint-and-analyzers.md` (CU endpoint + analyzers) and optionally `reference/foundry-iq-kb.md` (KB ingestion) and runs them with data-plane auth only.
 
 After setup, open the UI:
 
