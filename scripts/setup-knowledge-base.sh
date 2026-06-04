@@ -181,7 +181,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   echo "  - Storage Blob Data Contributor      on the storage account"
   echo "  - Search Index Data Contributor      on the Search service"
   echo "  - Azure AI User                       on the Foundry project"
-  echo "  - Reader                              on the resource group"
+  echo "  - Reader                              on the resource group (recommended; data-plane roles imply per-resource read)"
   echo ""
   echo "Required admin-track roles (--admin-prep mode):"
   echo "  - User Access Administrator           on the Search service"

@@ -150,7 +150,7 @@ Parse endpoint into:
 az cognitiveservices account show --name <foundryAccountName> --resource-group <foundryResourceGroup>
 ```
 
-If 403 / 404: ask for `Reader` on the RG. Stop.
+If 403 / 404: ask for `Reader` on the RG (or directly on the Foundry account — RG is preferred because it also covers the discovery convenience in Stage 3.4). Stop.
 
 ### 3.6 Region probe (informational, never blocking)
 
@@ -187,8 +187,8 @@ won't know yet, so run them all unless they're obviously irrelevant):
 
 | Probe | Command | If fails, needs |
 |---|---|---|
-| Reader on RG | `az group show -n <rg>` | `Reader` on RG |
-| Foundry account read | `az cognitiveservices account show -n <foundry> -g <rg>` | `Reader` on RG |
+| Reader on RG | `az group show -n <rg>` | `Reader` on RG *(recommended; convenience-only — covers discovery and lets `az ... show` work for sibling resources without a per-resource Reader assignment)* |
+| Foundry account read | `az cognitiveservices account show -n <foundry> -g <rg>` | `Reader` on Foundry account (already implied by `Cognitive Services User`, so this rarely fails on its own) |
 | CU data plane | `curl -H "Authorization: Bearer $(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)" "<cuEndpoint>contentunderstanding/analyzers?api-version=2024-12-01-preview"` | `Cognitive Services User` on Foundry account |
 | Foundry project data plane | `az rest --method get --uri "https://management.azure.com<projectId>/connections?api-version=2025-10-01-preview"` | `Azure AI User` on Foundry project |
 | Storage data plane (Demo 3) | `az storage container list --account-name <storage> --auth-mode login -o tsv` | `Storage Blob Data Contributor` on storage |
@@ -307,7 +307,7 @@ FOUNDRY_IQ_STANDARD_MCP_URL=...  # only if Demo 3 was set up
 # - Azure AI User                 on Foundry project
 # - Storage Blob Data Contributor on storage (Demo 3 only)
 # - Search Index Data Contributor on Search service (Demo 3 only)
-# - Reader                        on the resource group
+# - Reader                        on the resource group (recommended for discovery convenience; data-plane roles above already imply read access to the specific resources)
 ```
 
 ## Stage 7 — Admin Request Block (templated, emit verbatim)
@@ -345,7 +345,7 @@ Developer identity to grant access to:
 Missing access (run these in order, then tell the developer to re-login
 and re-run /sample-setup after ~5 minutes for role propagation):
 
-# --- Reader on RG (only if "Reader on RG" probe failed) ---
+# --- Reader on RG (only if "Reader on RG" probe failed; recommended for discovery convenience) ---
 az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
   --role "Reader" \
   --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>
