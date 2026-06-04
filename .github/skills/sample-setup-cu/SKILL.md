@@ -1,34 +1,43 @@
 ---
-name: "Sample Setup (CU Demo Orchestrator)"
-description: "User-facing entry point for setting up the CU demo fork. Explains scenarios, teaches Azure roles in plain language, runs a shared preflight, and routes to internal sub-skills. ALWAYS start here."
+name: "Sample Setup (CU Demo)"
+description: "User-facing entry point for setting up the CU demo fork. Explains scenarios, teaches Azure roles in plain language, runs a shared preflight, probes only the roles needed for the chosen demo path, and configures CU + (optionally) Foundry IQ KB. ALWAYS start here."
 tags: ['azure', 'content-understanding', 'setup', 'orchestrator', 'rbac', 'preflight']
 ---
 
-# sample-setup-cu — CU Demo Orchestrator
+# sample-setup-cu — CU Demo Setup
 
-You are the single entry point for setting up this fork. **Never run setup
-commands yourself before this skill's preflight completes.** Sub-skills
-(`sdk-internal-setup-cu`, `sdk-internal-setup-foundry-iq`) assume preflight
-already ran and will refuse to run standalone.
+You are the single entry point for setting up this fork.
+
+**Never run setup commands yourself before this skill's preflight completes.**
+Detailed steps live in `reference/*.md` — load them lazily when each stage
+needs them so the model isn't carrying the whole script every turn.
+
+## Reference files (load on demand)
+
+- `reference/azure-roles-primer.md` — Stage 2 plain-language role guide
+- `reference/role-probes.md` — Stage 5 probe table + classification
+- `reference/admin-request-block.md` — Stage 8 templated ask-admin message
+- `reference/cu-endpoint-and-analyzers.md` — Stage 6 module for Demos 1+2
+- `reference/foundry-iq-kb.md` — Stage 6 module for Demo 3
 
 ## Required opening message (verbatim, before any tool call)
 
 > 👋 **Welcome.** This setup configures the **Content Understanding (CU)
 > demo fork** of Fibey. It does **not** set up the original upstream
-> hosted-mode demo (Container Apps + Foundry-hosted agent). If that's what
-> you want, please go back to the upstream repo (`dbarkol/fibey-agent`) and
-> follow its README.
+> hosted-mode demo (Container Apps + Foundry-hosted agent). If that's
+> what you want, please go back to the upstream repo (`dbarkol/fibey-agent`)
+> and follow its README.
 >
 > I'll do four things, in order:
 > 1. **Explain** the CU demo scenarios and what resources each one needs.
 > 2. **Teach** Azure roles in plain language (this is where most people
 >    get stuck with 403 errors).
-> 3. **Preflight**: detect your OS, log-in status, subscription, Foundry
->    endpoint, and your current Azure roles.
-> 4. **Route** you to the right sub-skill based on what you want to set up.
+> 3. **Preflight + path selection**, then **probe only the roles your
+>    chosen path needs**.
+> 4. **Configure** CU + (optionally) Foundry IQ KB using data-plane auth.
 >
-> Reply `continue` to start, or `not this fork` if you'd rather go back to
-> upstream.
+> Reply `continue` to start, or `not this fork` if you'd rather go back
+> to upstream.
 
 Wait for confirmation. If user says "not this fork", point to
 `https://github.com/dbarkol/fibey-agent` and stop.
@@ -45,83 +54,44 @@ Render this table verbatim:
 
 Then say:
 > Demos 1 and 2 are runtime-only — fastest to set up. Demo 3 adds a
-> Storage account and an AI Search service for the knowledge base. I'll
-> ask which path you want after preflight.
+> Storage account and an AI Search service for the knowledge base.
 
-## Stage 2 — Azure roles primer (plain language)
+## Stage 2 — Azure roles primer
 
-Render this verbatim. Most users find this clarifying.
+Read `reference/azure-roles-primer.md` and follow its instructions
+(render the metaphor table verbatim, ask the user if they want
+clarification before continuing).
 
-> **Two planes — confusing them is the #1 cause of 403 in Azure.**
->
-> - **Management plane** = *the building*. Who can build / renovate / hand
->   out keys.
-> - **Data plane** = *the rooms*. Who can walk in and actually use the stuff.
->
-> Common roles in this metaphor:
->
-> | Role | Who they are | What they actually do |
-> |---|---|---|
-> | `Owner` | **Landlord** | Building manager + locksmith |
-> | `Contributor` | **Building manager** | Can renovate + grab master keys (`listKeys`), but **cannot change the key system** and is **not a tenant** |
-> | `User Access Administrator` | **Locksmith** | Can change who holds which key; cannot use any room |
-> | `Cognitive Services User` | **Tenant** of the AI building | Can call CU + LLM data plane with their own identity |
-> | `Azure AI User` | **Tenant** of a specific Foundry project apartment | Can use connections / agents / models in that project |
-> | `Storage Blob Data Contributor` | **Tenant** of the warehouse | Can read/write blobs with their own identity (no `listKeys` needed) |
-> | `Search Index Data Contributor` | **Tenant** of the library | Can CRUD indexes / KS / KB with their own identity |
->
-> Key insight: **`Contributor` is NOT a super user.** It's a resource
-> manager, not an authorized resource user. If you only have Contributor
-> and you try to read a blob with your Entra identity, it will 403 —
-> because Contributor doesn't include data-plane access. That's why the
-> dev path of this skill uses *tenant* roles (data plane), not Contributor.
-
-Ask: "Ready to start preflight? (yes / explain more)"
-
-If "explain more": dive deeper into any role they ask about, then re-ask.
-
-## Stage 3 — Preflight (read-only probes)
-
-Run in order. Each step persists its result in skill context for sub-skills.
+## Stage 3 — Preflight (no role probes yet)
 
 ### 3.1 OS detection
-
-Probe (try Bash first, fall back to PowerShell):
 ```bash
 uname -s 2>/dev/null || echo "windows-or-unknown"
 ```
-If output contains `Linux` → `os=linux`. `Darwin` → `os=macos`. Otherwise
-ask: "Are you on Windows? (yes/no)" — assume `os=windows` on yes.
+`Linux` → `os=linux`. `Darwin` → `os=macos`. Otherwise ask:
+"Are you on Windows? (yes/no)" — assume `os=windows` on yes.
 
-**Critical rule going forward:** if `os=windows`, emit only PowerShell
-commands. Never suggest Git Bash or WSL.
+**Critical:** if `os=windows`, emit only PowerShell commands. Never
+suggest Git Bash or WSL.
 
 ### 3.2 CLI presence
-
 ```
 az version
 azd version
 ```
-
-If `az` missing, install guidance:
+If `az` missing:
 - macOS: `brew install azure-cli`
-- Windows (PowerShell): `winget install Microsoft.AzureCLI`
-- Linux: see https://learn.microsoft.com/cli/azure/install-azure-cli
+- Windows: `winget install Microsoft.AzureCLI`
+- Linux: https://learn.microsoft.com/cli/azure/install-azure-cli
 
-`azd` is only needed if user chose admin track later. Don't block on it now.
+`azd` is admin-track-only; don't block on it now.
 
 ### 3.3 Sign-in + subscription
-
 ```
 az account show -o table
 ```
-
-If not signed in:
-- Windows: `az login` (opens browser)
-- macOS/Linux: `az login`
-
-Confirm subscription. If multiple, ask which one to use:
-`az account set --subscription <id>`
+If not signed in: `az login`. Confirm subscription. Multi-sub:
+`az account set --subscription <id>`.
 
 ### 3.4 Ask for Foundry project endpoint
 
@@ -129,169 +99,94 @@ Confirm subscription. If multiple, ask which one to use:
 > `https://<account>.services.ai.azure.com/api/projects/<project>`.
 > If you don't know it, I can list candidates from your subscription."
 
-Discovery command if needed:
+Discovery (only if needed):
 ```
 az cognitiveservices account list --query "[?kind=='AIServices'].{name:name, rg:resourceGroup, location:location, endpoint:properties.endpoint}" -o table
 ```
 
-Then list projects under chosen account:
-```
-az resource list --resource-type Microsoft.CognitiveServices/accounts/projects --query "[?contains(id,'/accounts/<account>/projects/')].{name:name, id:id}" -o table
-```
+Parse endpoint into `foundryAccountName`, `foundryProjectName`,
+`foundryResourceGroup`.
 
-Parse endpoint into:
-- `foundryAccountName`
-- `foundryProjectName`
-- `foundryResourceGroup` (from `az cognitiveservices account show`)
-
-### 3.5 Confirm Foundry resource exists (read-only)
-
+### 3.5 Confirm Foundry resource exists
 ```
 az cognitiveservices account show --name <foundryAccountName> --resource-group <foundryResourceGroup>
 ```
-
-If 403 / 404: ask for `Reader` on the RG (or directly on the Foundry account — RG is preferred because it also covers the discovery convenience in Stage 3.4). Stop.
+If 403 / 404: ask for `Reader` on the RG (or directly on the Foundry
+account). Stop.
 
 ## Stage 4 — Path selection (ASK BEFORE PROBING ROLES)
 
-The chosen path determines which roles to probe and which roles to ask
-the admin for. Pick it now so the probe step (Stage 5) doesn't:
-- waste API calls on Storage / Search resources that won't be used, and
-- scare the user with red ❌ on probes that don't apply to their path, and
-- bloat the Admin Request Block with roles they don't actually need.
+Picking the path first means Stage 5 only probes (and Stage 8 only asks
+for) the roles the chosen demos actually need. Don't scare the user
+with red ❌ on Storage/Search probes they don't use.
 
 Ask:
 > "Which demos do you want to set up?
 > - `1+2 only` — CU runtime (`prebuilt-layout` + custom analyzer). Fastest.
->   **Resources needed**: Foundry account + project + 1 chat model.
->   **Roles needed (dev path)**: `Cognitive Services User` on Foundry account,
+>   **Resources**: Foundry account + project + 1 chat model.
+>   **Dev roles**: `Cognitive Services User` on Foundry account,
 >   `Azure AI User` on Foundry project.
 > - `all three` — 1+2 then KB ingestion comparison. Adds Storage + AI Search.
->   **Additional resources**: Storage account + AI Search service.
->   **Additional roles (dev path)**: `Storage Blob Data Contributor` on storage,
+>   **Adds resources**: Storage account + AI Search service.
+>   **Adds dev roles**: `Storage Blob Data Contributor` on storage,
 >   `Search Index Data Contributor` on Search.
-> - `3 only` — KB only (assumes 1+2 already configured).
->   **Resources / roles**: same as Demo 3 above; Foundry endpoint must exist."
+> - `3 only` — KB only (assumes 1+2 already configured)."
 
-Persist `path` in skill context. Stage 5 reads it.
+Persist `path` in skill context.
 
 ## Stage 5 — Region + role probes (scoped to chosen path)
 
 ### 5.1 Region probe (informational, never blocking)
 
-Collect regions of:
-- RG: `az group show -n <rg> --query location -o tsv`
-- Foundry account: from previous show
-- Storage and Search — **only if `path` includes Demo 3**
+Collect regions of: RG, Foundry account, and (only if path includes
+Demo 3) Storage and Search. Render table.
 
-Render table. If regions differ, print:
-> ℹ️ Detected region mismatch. **This is supported and common** because CU
-> is only available in select regions. Continuing — expect minor latency
-> if KB Storage / Search end up in a different region from Foundry.
+If regions differ, print once:
+> ℹ️ Detected region mismatch. **This is supported and common** because
+> CU is only available in select regions. Continuing — expect minor
+> latency if KB Storage / Search end up in a different region from Foundry.
 
-**Do not block. Do not ask the user to take action.**
+**Do not block.**
 
-### 5.2 Role probe — batched, scoped to path
+### 5.2 Role probes + classification
 
-Collect baseline identity once:
-```
-OID=$(az ad signed-in-user show --query id -o tsv)
-UPN=$(az ad signed-in-user show --query userPrincipalName -o tsv)
-SUB=$(az account show --query id -o tsv)
-az role assignment list --assignee $OID --all \
-  --query "[].{Role:roleDefinitionName, Scope:scope}" -o table
-```
+Load `reference/role-probes.md` and follow it. The probe set is filtered
+by `path`. Aggregate all failures (do NOT stop at the first), then
+classify into `admin` / `dev` / `mixed` / `none`.
 
-**Run all relevant data-plane probes in one batch (do NOT stop at the
-first failure).** For each probe record `ok: true|false` plus the role +
-scope needed. This way the Admin Request Block (Stage 8) lists every
-missing role in one shot — admin doesn't get pinged 3 separate times.
+If `none`: load `reference/admin-request-block.md`, render it with only
+the roles the path needs, then stop.
 
-Probe set is determined by `path`:
+Confirm the classification with the user before continuing.
 
-| Probe | Path 1+2 | Path 3 | Path all | If fails, needs |
-|---|:---:|:---:|:---:|---|
-| Reader on RG | ✅ | ✅ | ✅ | `Reader` on RG *(recommended; convenience-only — covers discovery and lets `az ... show` work for sibling resources without per-resource Reader)* |
-| Foundry account read (`az cognitiveservices account show -n <foundry> -g <rg>`) | ✅ | ✅ | ✅ | `Reader` on Foundry account (already implied by `Cognitive Services User`, so this rarely fails on its own) |
-| CU data plane (`curl -H "Authorization: Bearer $(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)" "<cuEndpoint>contentunderstanding/analyzers?api-version=2024-12-01-preview"`) | ✅ | ⏭ | ✅ | `Cognitive Services User` on Foundry account |
-| Foundry project data plane (`az rest --method get --uri "https://management.azure.com<projectId>/connections?api-version=2025-10-01-preview"`) | ✅ | ✅ | ✅ | `Azure AI User` on Foundry project |
-| Storage data plane (`az storage container list --account-name <storage> --auth-mode login -o tsv`) | ⏭ | ✅ | ✅ | `Storage Blob Data Contributor` on storage |
-| Search data plane (`curl -H "Authorization: Bearer $(az account get-access-token --resource https://search.azure.com --query accessToken -o tsv)" "https://<search>.search.windows.net/servicestats?api-version=2024-07-01"`) | ⏭ | ✅ | ✅ | `Search Index Data Contributor` on Search |
+## Stage 6 — Run the chosen modules
 
-Render the result table (show ⏭ for probes skipped due to path):
-
-```
-Path: 1+2 only
-
-Probe                          Result   Needed if missing
------                          ------   -----------------
-Reader on RG                   ✅
-Foundry account read           ✅
-CU data plane                  ❌       Cognitive Services User on Foundry account
-Foundry project data plane     ❌       Azure AI User on Foundry project
-Storage data plane             ⏭        Not needed for this path
-Search data plane              ⏭        Not needed for this path
-```
-
-### 5.3 Classify and confirm
-
-Based on probe results (only considering probes that ran):
-
-- **`admin`** — has `Contributor` / `Owner` / `User Access Administrator`
-  at subscription OR RG scope. Can run `azd up` and assign roles. (Even
-  if data-plane probes fail — admin can self-assign.)
-- **`dev`** — all probes required by the chosen path passed. Skip
-  `azd up`, skip role assignment.
-- **`mixed`** — both. Default to admin with an "act as dev" off-ramp.
-- **`none`** — at least one required probe failed AND user is not
-  admin → **emit the Admin Request Block (Stage 8) with only the
-  roles for the chosen path** and stop.
-
-Tell the user:
-> "Based on these probes for the **`<path>`** path, I've classified you
-> as **`<track>`**."
-> - For `admin`: explain you'll provision + pre-assign data-plane roles.
-> - For `dev`: explain you'll skip provisioning, run only data-plane ops.
-> - For `mixed`: offer the `Switch to dev track` off-ramp.
-> - For `none`: emit Admin Request Block and stop.
-
-Ask: "Continue as `<track>`?" Options:
-- `Yes, continue`
-- `Switch to dev track` (only shown for `mixed`)
-- `Switch path` (lets user reconsider Stage 4 if probes look unwinnable)
-- `Stop here`
-
-## Stage 6 — Invoke sub-skills
-
-For each chosen sub-skill, pass the context dict:
+Pass this context dict forward (modules read it; don't re-probe):
 ```
 {
   "os": "<linux|macos|windows>",
-  "subscriptionId": "...",
-  "tenantId": "...",
-  "foundryAccountName": "...",
-  "foundryAccountResourceId": "...",
-  "foundryProjectEndpoint": "...",
-  "foundryResourceGroup": "...",
+  "subscriptionId": "...", "tenantId": "...",
+  "foundryAccountName": "...", "foundryAccountResourceId": "...",
+  "foundryProjectEndpoint": "...", "foundryResourceGroup": "...",
   "track": "<admin|dev|mixed>",
   "roleProbe": { ... }
 }
 ```
 
-Invoke in this order:
-- If `1+2 only` or `all three`: `sdk-internal-setup-cu` first
-- If `all three` or `3 only`: `sdk-internal-setup-foundry-iq` after (or alone)
+Module sequence (driven by `path`):
+- `1+2 only` → load and follow `reference/cu-endpoint-and-analyzers.md`
+- `3 only` → load and follow `reference/foundry-iq-kb.md`
+- `all three` → run `cu-endpoint-and-analyzers.md` first, then
+  `foundry-iq-kb.md`
 
-Each sub-skill reports back success + env keys written.
+If a module hits a 403 mid-execution (e.g. propagation lag): load
+`reference/admin-request-block.md` and emit it with the specific
+missing role appended. Modules must never improvise an ask-admin
+message.
 
-**If a sub-skill hits a 403 during execution** (e.g. role propagation lag,
-or a probe we missed), it MUST stop and emit the **Admin Request Block**
-(see Stage 8) appended with the specific missing role. Sub-skills must
-never improvise their own ask-admin message.
+## Stage 7 — Final handoff
 
-## Stage 7 — Final handoff (success path)
-
-After all selected sub-skills succeed:
+After all selected modules succeed:
 
 ```
 ✅ Setup complete.
@@ -309,8 +204,7 @@ Quick validation URLs (once you start the stack):
   - Gateway features: http://localhost:8080/api/features
 ```
 
-If user is on admin track, also emit a copy-paste **Dev Handoff Block** so
-they can give a developer just the env vars + role assignments they need:
+If user is on **admin track**, also emit a copy-paste **Dev Handoff Block**:
 
 ```
 # Dev handoff — paste this into your .env (and ensure roles below are assigned)
@@ -327,107 +221,32 @@ FOUNDRY_IQ_STANDARD_MCP_URL=...  # only if Demo 3 was set up
 # - Azure AI User                 on Foundry project
 # - Storage Blob Data Contributor on storage (Demo 3 only)
 # - Search Index Data Contributor on Search service (Demo 3 only)
-# - Reader                        on the resource group (recommended for discovery convenience; data-plane roles above already imply read access to the specific resources)
+# - Reader                        on the resource group (recommended; data-plane roles above already imply read access to the specific resources)
 ```
 
-## Stage 8 — Admin Request Block (templated, emit verbatim)
+## Stage 8 — Admin Request Block (load on demand)
 
-Use this block whenever a developer is blocked by missing roles. Emit it
-**once with every missing role bundled in**, never one role at a time.
-This block is the *only* sanctioned way the skills (orchestrator + both
-sub-skills) ask the developer to escalate to an admin.
+Defined in `reference/admin-request-block.md`. Render it verbatim whenever:
+- Stage 5.3 classification produces `none`
+- A module in Stage 6 hits a 403 mid-execution
 
-Before emitting, collect:
-- `subscriptionId` and `subscriptionName` (from `az account show`)
-- `resourceGroup`, `foundryAccountName`, `foundryProjectName`
-- `searchServiceName`, `storageAccountName` (Demo 3 only; omit lines if N/A)
-- Developer's `oid` and `upn` (from `az ad signed-in-user show`)
-- The list of failed probes from Stage 3.7 (mapping to roles)
-
-Render exactly this, filling placeholders with collected values and
-including only the role-assignment commands that correspond to actually-
-failed probes (don't ask the admin to grant roles the developer already has):
-
-```
-📋 Admin help needed — please forward to your Azure subscription owner
-
-Subscription:    <subscriptionName> (<subscriptionId>)
-Resource group:  <resourceGroup>
-Foundry account: <foundryAccountName>
-Foundry project: <foundryProjectName>
-Search service:  <searchServiceName>     # Demo 3 only — omit if N/A
-Storage account: <storageAccountName>    # Demo 3 only — omit if N/A
-
-Developer identity to grant access to:
-  UPN:       <upn>
-  Object ID: <oid>
-
-Missing access (run these in order, then tell the developer to re-login
-and re-run /sample-setup-cu after ~5 minutes for role propagation):
-
-# --- Reader on RG (only if "Reader on RG" probe failed; recommended for discovery convenience) ---
-az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
-  --role "Reader" \
-  --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>
-
-# --- CU + LLM data plane (only if "CU data plane" probe failed) ---
-az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
-  --role "Cognitive Services User" \
-  --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>/providers/Microsoft.CognitiveServices/accounts/<foundryAccountName>
-
-# --- Foundry project data plane (only if "Foundry project data plane" probe failed) ---
-az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
-  --role "Azure AI User" \
-  --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>/providers/Microsoft.CognitiveServices/accounts/<foundryAccountName>/projects/<foundryProjectName>
-
-# --- Storage data plane (Demo 3 only, if probe failed) ---
-az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
-  --role "Storage Blob Data Contributor" \
-  --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>/providers/Microsoft.Storage/storageAccounts/<storageAccountName>
-
-# --- Search data plane (Demo 3 only, if probe failed) ---
-az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
-  --role "Search Index Data Contributor" \
-  --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>/providers/Microsoft.Search/searchServices/<searchServiceName>
-
-# --- One-time Foundry MI access for KB (Demo 3 only) ---
-# Required for Foundry IQ KB queries from the agent to succeed.
-# Run this from a machine with az CLI as a user who has User Access Administrator on the Search service:
-./scripts/setup-knowledge-base.sh --admin-prep
-
-After all commands complete and ~5 minutes have passed for RBAC
-propagation, the developer can run:
-    az logout && az login
-    /sample-setup-cu
-and continue without further admin involvement.
-
-Why these roles (in plain language):
-- "Cognitive Services User" and "Azure AI User" are *tenant* roles — they
-  let the developer call CU + Foundry from their own identity, without
-  needing keys.
-- "Contributor" alone is NOT enough — it manages the resource but is not
-  a tenant of the data plane (this is the #1 source of 403s).
-```
-
-When emitting from a sub-skill (post-classification 403), prepend a one-
-sentence context:
-> "Hit a 403 on `<which probe / which action>`. Stopping. Please send the
-> following to your admin:"
+Only include role-assignment commands for probes that **actually failed**
+for the **chosen path**. Don't ask the admin to grant roles the developer
+already has, or roles for a path they didn't pick.
 
 ## Hard rules
 
 1. Never run `azd up` until after preflight + path selection + user confirm.
-2. Never run `az role assignment create` directly. Print it as part of the
-   Admin Request Block (Stage 8) instead. (Only `--admin-prep` flag in
-   `setup-knowledge-base.sh`, run intentionally by an admin, assigns the
-   Foundry MI's KB role.)
+2. Never run `az role assignment create` directly. Render Stage 8's
+   Admin Request Block instead. (Only `--admin-prep` flag in
+   `setup-knowledge-base.{sh,ps1}`, run intentionally by an admin,
+   assigns the Foundry MI's KB role.)
 3. On Windows, **only PowerShell** — never Git Bash, never WSL.
 4. Region mismatches are informational, never blocking.
 5. `Contributor` is not a super user. If the user assumes it is, gently
    re-explain using the building/tenant metaphor.
-6. If a user asks to set up the upstream hosted-mode demo, redirect them
-   to the upstream repo and stop.
-7. **Never improvise an ask-admin message.** Always emit Stage 8's Admin
-   Request Block, with only the role lines that match actually-failed
-   probes. Sub-skills must follow this rule too.
-
+6. If a user asks to set up the upstream hosted-mode demo, redirect
+   them to the upstream repo and stop.
+7. **Never improvise an ask-admin message.** Always emit Stage 8's
+   Admin Request Block, with only the role lines that match actually-
+   failed probes for the chosen path. Modules must follow this rule too.

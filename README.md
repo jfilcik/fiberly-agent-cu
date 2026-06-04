@@ -138,8 +138,7 @@ The `/sample-setup-cu` skill sets up and verifies this flow.
 | [content-understanding/README.md](content-understanding/README.md) | End-to-end CU demo walkthrough and analyzer commands |
 | [services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md](services/foundry-iq-docs/content-understanding/FOUNDRY_IQ_SETUP.md) | Foundry IQ minimal vs standard ingestion setup details |
 | [.github/skills/sample-setup-cu/SKILL.md](.github/skills/sample-setup-cu/SKILL.md) | Orchestrator skill — concept primer, preflight, role probing, routing |
-| [.github/skills/sdk-internal-setup-cu/SKILL.md](.github/skills/sdk-internal-setup-cu/SKILL.md) | Internal sub-skill — CU endpoint + analyzers (Demos 1 + 2) |
-| [.github/skills/sdk-internal-setup-foundry-iq/SKILL.md](.github/skills/sdk-internal-setup-foundry-iq/SKILL.md) | Internal sub-skill — Foundry IQ KB (Demo 3) |
+| [.github/skills/sample-setup-cu/reference/](.github/skills/sample-setup-cu/reference/) | Modules loaded by the orchestrator on demand (Azure role primer, role probes, admin request block, CU + analyzers, Foundry IQ KB) |
 | [.github/skills/sample-demo-cu/SKILL.md](.github/skills/sample-demo-cu/SKILL.md) | Copilot skill playbook used by `/sample-demo-cu` to run the CU demo scenarios |
 
 ## Need the original full-platform guidance?

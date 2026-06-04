@@ -29,14 +29,14 @@ trips up most users.
 
 | Skill | User-invokable? | Purpose |
 |---|---|---|
-| `sample-setup-cu` | ✅ **Start here** | Concept primer + shared preflight + routes to internal sub-skills |
+| `sample-setup-cu` | ✅ **Start here** | CU demo setup — concept primer, preflight, role probing, path selection, and execution. Internal modules live under `sample-setup-cu/reference/*.md` and are loaded by the orchestrator on demand. |
 | `sample-demo-cu` | ✅ | Guided 3-demo walkthrough (Runtime layout → Custom analyzer → Foundry IQ ingestion) |
-| `sdk-internal-setup-cu` | ❌ Internal | CU endpoint + analyzers only. Called by `sample-setup-cu`. |
-| `sdk-internal-setup-foundry-iq` | ❌ Internal | KB ingestion (Storage + Search + Foundry connections). Called by `sample-setup-cu`. |
 | `sample-internal-*` | ⚠ Maintainers | Repo internals (toolbox, UI designer, etc.) |
 
-If a user invokes an `sdk-internal-*` skill directly, redirect them to
-`sample-setup-cu` and stop — the internal skills assume preflight already ran.
+The `sample-setup-cu/reference/` files (e.g. `cu-endpoint-and-analyzers.md`,
+`foundry-iq-kb.md`, `admin-request-block.md`) are not standalone skills.
+Don't invoke them directly — the orchestrator loads them at the right
+stage so the model only carries the relevant section into context.
 
 ## Hard rules for the agent
 
