@@ -84,17 +84,10 @@ Use the Copilot Chat command from any agent (VS Code Copilot, Cursor, Claude Cod
 The orchestrator skill walks you through, in order:
 
 1. **Concept primer** — 3 CU demos, what each needs, and a plain-language Azure role guide (the landlord / building-manager / tenant metaphor that makes 403s obvious).
-2. **Shared preflight** — OS detection (Windows PowerShell or macOS/Linux Bash, **no Git Bash/WSL needed**), `az login`, subscription, and one batched probe across CU + Foundry + Storage + Search data planes.
-3. **Role classification** — auto-detects Admin / Dev / Mixed / None track. If you're a dev missing roles, it emits a single copy-pasteable **Admin Request Block** with only the roles you actually need.
-4. **Path selection** — pick `Demos 1+2 only` (fastest — Foundry account + chat model only) or `all three` (adds Storage + AI Search for the KB demo).
-5. **Sub-skill execution** — internal `sdk-internal-setup-cu` (CU endpoint + analyzers) and optionally `sdk-internal-setup-foundry-iq` (KB ingestion) run with data-plane auth only — no `listKeys`, no admin-key, no role-assignment commands.
-
-**What you don't need (anymore):**
-- `Contributor` on the subscription (`Reader` on the RG is enough for the dev path — and even that is just a convenience).
-- `User Access Administrator` (only the one-time `--admin-prep` step needs it, and that's run by your admin).
-- `Storage Account Contributor` (script uses `--auth-mode login`).
-- Search admin-key (script uses AAD Bearer tokens).
-- Git Bash or WSL on Windows (skill emits PowerShell + uses `.ps1` siblings of every script).
+2. **Preflight** — OS detection (Windows PowerShell or macOS/Linux Bash, no Git Bash/WSL needed), `az login`, subscription, and Foundry endpoint discovery.
+3. **Path selection** — pick `Demos 1+2 only` (fastest — Foundry account + chat model only) or `all three` (adds Storage + AI Search for the KB demo). Each option lists the exact roles it needs up front.
+4. **Role probe (scoped to your path)** — auto-detects Admin / Dev / Mixed / None track. If you're a dev missing roles, it emits a single copy-pasteable **Admin Request Block** with only the roles you actually need.
+5. **Sub-skill execution** — internal `sdk-internal-setup-cu` (CU endpoint + analyzers) and optionally `sdk-internal-setup-foundry-iq` (KB ingestion) run with data-plane auth only.
 
 After setup, open the UI:
 
