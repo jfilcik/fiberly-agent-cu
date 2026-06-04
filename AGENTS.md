@@ -72,7 +72,7 @@ Two distinct planes. Confusing them is the #1 cause of 403 in this repo.
 | `Storage Blob Data Contributor` | Tenant of the warehouse | Can read/write blobs with their own identity (no `listKeys` needed) |
 | `Search Index Data Contributor` | Tenant of the library | Can CRUD indexes / KS / KB with their own identity |
 
-**Vendor / dev workflow target**: a developer should be able to run the demo
+**Developer workflow target**: a developer should be able to run the demo
 with only data-plane (tenant) roles, no management-plane keys. The
 `sample-setup` skill enforces this split.
 
