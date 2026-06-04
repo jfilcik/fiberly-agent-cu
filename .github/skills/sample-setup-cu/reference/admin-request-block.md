@@ -9,6 +9,7 @@ module ask the developer to escalate to an admin.
 
 - `subscriptionId` and `subscriptionName` (from `az account show`)
 - `resourceGroup`, `foundryAccountName`, `foundryProjectName`
+- `cuAccountName`, `cuResourceGroup` (may equal Foundry account; may differ)
 - `searchServiceName`, `storageAccountName` (Demo 3 only; omit lines if N/A)
 - Developer's `oid` and `upn` (from `az ad signed-in-user show`)
 - The list of failed probes from Stage 5.2 (mapping to roles)
@@ -26,6 +27,7 @@ Subscription:    <subscriptionName> (<subscriptionId>)
 Resource group:  <resourceGroup>
 Foundry account: <foundryAccountName>
 Foundry project: <foundryProjectName>
+CU account:      <cuAccountName>         # may differ from Foundry account (CU region constraints)
 Search service:  <searchServiceName>     # Demo 3 only — omit if N/A
 Storage account: <storageAccountName>    # Demo 3 only — omit if N/A
 
@@ -42,9 +44,12 @@ az role assignment create --assignee-object-id <oid> --assignee-principal-type U
   --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>
 
 # --- CU + LLM data plane (only if "CU data plane" probe failed) ---
+# Scope is the CU account, which may be a different AIServices account
+# from the Foundry agent account (if the Foundry region doesn't support CU).
+# Use `cuAccountName` (and its RG) here, not `foundryAccountName`.
 az role assignment create --assignee-object-id <oid> --assignee-principal-type User \
   --role "Cognitive Services User" \
-  --scope /subscriptions/<subscriptionId>/resourceGroups/<resourceGroup>/providers/Microsoft.CognitiveServices/accounts/<foundryAccountName>
+  --scope /subscriptions/<subscriptionId>/resourceGroups/<cuResourceGroup>/providers/Microsoft.CognitiveServices/accounts/<cuAccountName>
 
 # --- Foundry project data plane (only if "Foundry project data plane" probe failed) ---
 az role assignment create --assignee-object-id <oid> --assignee-principal-type User \

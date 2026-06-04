@@ -23,7 +23,7 @@ one shot.
 |---|:---:|:---:|:---:|---|
 | Reader on RG | ✅ | ✅ | ✅ | `Reader` on RG *(recommended; convenience-only — covers discovery and lets `az ... show` work for sibling resources without per-resource Reader)* |
 | Foundry account read (`az cognitiveservices account show -n <foundry> -g <rg>`) | ✅ | ✅ | ✅ | `Reader` on Foundry account (already implied by `Cognitive Services User`, so this rarely fails on its own) |
-| CU data plane (`curl -H "Authorization: Bearer $(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)" "<cuEndpoint>contentunderstanding/analyzers?api-version=2024-12-01-preview"`) | ✅ | ⏭ | ✅ | `Cognitive Services User` on Foundry account |
+| CU data plane (`curl -H "Authorization: Bearer $(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)" "<cuEndpoint>contentunderstanding/analyzers?api-version=2024-12-01-preview"`) | ✅ | ⏭ | ✅ | `Cognitive Services User` on **CU account** (`cuAccountName` — may differ from `foundryAccountName`) |
 | Foundry project data plane (`az rest --method get --uri "https://management.azure.com<projectId>/connections?api-version=2025-10-01-preview"`) | ✅ | ✅ | ✅ | `Azure AI User` on Foundry project |
 | Storage data plane (`az storage container list --account-name <storage> --auth-mode login -o tsv`) | ⏭ | ✅ | ✅ | `Storage Blob Data Contributor` on storage |
 | Search data plane (`curl -H "Authorization: Bearer $(az account get-access-token --resource https://search.azure.com --query accessToken -o tsv)" "https://<search>.search.windows.net/servicestats?api-version=2024-07-01"`) | ⏭ | ✅ | ✅ | `Search Index Data Contributor` on Search |

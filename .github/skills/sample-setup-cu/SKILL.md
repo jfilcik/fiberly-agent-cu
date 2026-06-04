@@ -111,19 +111,53 @@ az account show -o table
 If not signed in: `az login`. Confirm subscription. Multi-sub:
 `az account set --subscription <id>`.
 
-### 3.4 Ask for Foundry project endpoint
+### 3.4 Ask for the two endpoints (they may point to different accounts)
 
-> "Paste your `FOUNDRY_PROJECT_ENDPOINT`. Format:
-> `https://<account>.services.ai.azure.com/api/projects/<project>`.
-> If you don't know it, I can list candidates from your subscription."
+The CU demo uses **two distinct endpoints** that may or may not live on
+the same AIServices account:
+
+- `FOUNDRY_PROJECT_ENDPOINT` — agent + chat model. Project-scoped.
+  Format: `https://<account>.services.ai.azure.com/api/projects/<project>`
+- `AZURE_CONTENTUNDERSTANDING_ENDPOINT` — CU data plane. Account-scoped.
+  Format: `https://<account>.services.ai.azure.com/`
+
+They CAN be the same account (simplest, when your Foundry region also
+supports CU). They MUST be different accounts when your Foundry account
+is in a region CU doesn't support (see
+https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support).
+
+#### 3.4.1 Foundry project endpoint
+
+> "Paste your `FOUNDRY_PROJECT_ENDPOINT`. If you don't know it, I can
+> list candidates from your subscription."
 
 Discovery (only if needed):
 ```
 az cognitiveservices account list --query "[?kind=='AIServices'].{name:name, rg:resourceGroup, location:location, endpoint:properties.endpoint}" -o table
 ```
 
+Then list projects under the chosen account:
+```
+az resource list --resource-type Microsoft.CognitiveServices/accounts/projects --query "[?contains(id,'/accounts/<account>/projects/')].{name:name, id:id}" -o table
+```
+
 Parse endpoint into `foundryAccountName`, `foundryProjectName`,
 `foundryResourceGroup`.
+
+#### 3.4.2 CU endpoint
+
+Default proposal:
+> "By default I'll use `https://<foundryAccountName>.services.ai.azure.com/`
+> as your CU endpoint (same account as your Foundry project). This works
+> if `<foundryAccountName>`'s region supports CU.
+>
+> If your Foundry account is in a region CU doesn't support, paste a
+> different CU endpoint here (it must be an AIServices account in a
+> CU-supported region). Otherwise press enter to accept the default."
+
+Persist as `cuEndpoint`. If the user supplied a different one, parse and
+remember `cuAccountName` and `cuResourceGroup` too (you'll need them for
+the role-probe step and any Admin Request Block).
 
 ### 3.5 Confirm Foundry resource exists
 ```
@@ -186,6 +220,9 @@ Pass this context dict forward (modules read it; don't re-probe):
   "subscriptionId": "...", "tenantId": "...",
   "foundryAccountName": "...", "foundryAccountResourceId": "...",
   "foundryProjectEndpoint": "...", "foundryResourceGroup": "...",
+  "cuEndpoint": "...",          // from Stage 3.4.2; may belong to a different account
+  "cuAccountName": "...",       // same account as Foundry by default; different if user supplied
+  "cuResourceGroup": "...",
   "track": "<admin|dev|mixed>",
   "roleProbe": { ... }
 }

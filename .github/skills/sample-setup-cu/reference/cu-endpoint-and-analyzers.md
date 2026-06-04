@@ -36,9 +36,13 @@ ARM. If `track == none`, stop and emit `admin-request-block.md`.
 
 ### Step 1 — Verify CU endpoint reachability (dev probe)
 
-Compute CU endpoint from Foundry account:
+Use the `cuEndpoint` already collected by the orchestrator at Stage 3.4.2
+(it may live on a different AIServices account than the Foundry agent
+account — that's expected when the Foundry account's region doesn't
+support CU). Do NOT recompute it from `foundryAccountName`.
+
 ```
-AZURE_CONTENTUNDERSTANDING_ENDPOINT=https://<foundryAccountName>.services.ai.azure.com/
+AZURE_CONTENTUNDERSTANDING_ENDPOINT=<cuEndpoint>
 ```
 
 Probe (list analyzers, read-only):
@@ -56,8 +60,10 @@ Probe (list analyzers, read-only):
   ```
 
 If 401/403: load `admin-request-block.md` and emit it verbatim with the
-failing role (`Cognitive Services User` on the Foundry account) pre-
-filled. Do not improvise an ask-admin message. Stop after emitting.
+failing role (`Cognitive Services User` on the **CU account** —
+`cuAccountName` from the context dict, which may differ from
+`foundryAccountName`) pre-filled. Do not improvise an ask-admin message.
+Stop after emitting.
 
 ### Step 2 — Verify or create chat model deployment
 
