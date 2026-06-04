@@ -14,7 +14,7 @@ needs them so the model isn't carrying the whole script every turn.
 
 ## Reference files (load on demand)
 
-- `reference/azure-roles-primer.md` — Stage 2 plain-language role guide
+- `reference/azure-roles-primer.md` — Stage 2 plain-language role guide (opt-in)
 - `reference/role-probes.md` — Stage 5 probe table + classification
 - `reference/admin-request-block.md` — Stage 8 templated ask-admin message
 - `reference/cu-endpoint-and-analyzers.md` — Stage 6 module for Demos 1+2
@@ -28,39 +28,57 @@ needs them so the model isn't carrying the whole script every turn.
 > what you want, please go back to the upstream repo (`dbarkol/fibey-agent`)
 > and follow its README.
 >
-> I'll do four things, in order:
-> 1. **Explain** the CU demo scenarios and what resources each one needs.
-> 2. **Teach** Azure roles in plain language (this is where most people
->    get stuck with 403 errors).
-> 3. **Preflight + path selection**, then **probe only the roles your
->    chosen path needs**.
-> 4. **Configure** CU + (optionally) Foundry IQ KB using data-plane auth.
+> Here's what each demo path needs from you (RBAC-wise) — most setup
+> problems come down to missing one of these roles:
+>
+> | Demo path | Resources | Dev-track roles you need |
+> |---|---|---|
+> | **Demos 1 + 2** — CU runtime | Foundry account + project + 1 chat model | `Cognitive Services User` on Foundry account · `Azure AI User` on Foundry project |
+> | **Demo 3** — Foundry IQ KB ingestion | adds Storage + AI Search | adds `Storage Blob Data Contributor` on storage · `Search Index Data Contributor` on Search |
+>
+> I'll pick the path with you in a moment and then probe only the roles
+> that path actually needs. If anything's missing, I'll generate a
+> single ready-to-send message for your admin.
 >
 > Reply `continue` to start, or `not this fork` if you'd rather go back
-> to upstream.
+> to upstream. You can also reply `explain roles` if you'd like a short
+> plain-language primer on Azure roles (management plane vs data plane,
+> why `Contributor` isn't a super-user) before we begin — most users skip
+> this and pick it up when a probe fails.
 
 Wait for confirmation. If user says "not this fork", point to
-`https://github.com/dbarkol/fibey-agent` and stop.
+`https://github.com/dbarkol/fibey-agent` and stop. If user says
+"explain roles", load `reference/azure-roles-primer.md` and render it,
+then ask `continue` again.
 
-## Stage 1 — Explain CU demo scenarios
+## Stage 1 — What each demo shows (so the user can choose informed)
 
-Render this table verbatim:
+Render this table verbatim so the user understands what they're picking
+between in Stage 4. The opening already covered resources + roles; this
+covers the *value* of each demo.
 
-| Demo | What it shows | Resources you'll need |
-|---|---|---|
-| **Demo 1** — Runtime `prebuilt-layout` | CU lets the LLM read `.docx` / scanned files that OpenAI native upload rejects | Foundry account + project + 1 chat model |
-| **Demo 2** — Custom analyzer + classifier | Field-level extraction beats plain markdown for adversarial documents | same as Demo 1 |
-| **Demo 3** — Foundry IQ minimal vs standard ingestion | CU preserves table structure during KB ingestion, so retrieval-grounded answers stay correct | Demo 1 + Storage account + AI Search |
+| Demo | What it shows |
+|---|---|
+| **Demo 1** — Runtime `prebuilt-layout` | CU lets the LLM read `.docx` / scanned files that OpenAI native upload rejects |
+| **Demo 2** — Custom analyzer + classifier | Field-level extraction beats plain markdown for adversarial documents |
+| **Demo 3** — Foundry IQ minimal vs standard ingestion | CU preserves table structure during KB ingestion, so retrieval-grounded answers stay correct |
 
 Then say:
 > Demos 1 and 2 are runtime-only — fastest to set up. Demo 3 adds a
 > Storage account and an AI Search service for the knowledge base.
 
-## Stage 2 — Azure roles primer
+## Stage 2 — Azure roles primer (optional — only on user request)
 
-Read `reference/azure-roles-primer.md` and follow its instructions
-(render the metaphor table verbatim, ask the user if they want
-clarification before continuing).
+This stage is **opt-in**. The opening message already showed the user
+which roles each path needs, which is enough for most cases. Only run
+this stage if the user explicitly asks (e.g. replies `explain roles`,
+`why these roles`, or "I don't understand Azure roles").
+
+When asked: load `reference/azure-roles-primer.md` and render it
+verbatim. Then ask "Ready to continue?" and resume at Stage 3.
+
+If the user never asks, skip straight from the opening message to
+Stage 3. Don't preach.
 
 ## Stage 3 — Preflight (no role probes yet)
 
