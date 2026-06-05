@@ -34,6 +34,12 @@
     },
     "enableSearchBlobReaderRoleAssignment": {
       "value": "${ENABLE_SEARCH_BLOB_READER_ROLE_ASSIGNMENT=false}"
+    },
+    "includeFoundryIq": {
+      "value": "${INCLUDE_FOUNDRY_IQ=true}"
+    },
+    "includeHostedRuntime": {
+      "value": "${INCLUDE_HOSTED_RUNTIME=true}"
     }
   }
 }
