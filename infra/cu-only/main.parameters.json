@@ -9,13 +9,25 @@
       "value": "${AZURE_LOCATION=eastus}"
     },
     "chatModelDeploymentName": {
-      "value": "${CHAT_MODEL_DEPLOYMENT_NAME=gpt-4o-mini}"
+      "value": "${CHAT_MODEL_DEPLOYMENT_NAME=gpt-4.1-mini}"
+    },
+    "cuChatModelDeploymentName": {
+      "value": "${CU_CHAT_MODEL_DEPLOYMENT_NAME=gpt-4.1-mini-cu}"
     },
     "chatModelName": {
-      "value": "${CHAT_MODEL_NAME=gpt-4o-mini}"
+      "value": "${CHAT_MODEL_NAME=gpt-4.1-mini}"
     },
     "chatModelVersion": {
-      "value": "${CHAT_MODEL_VERSION=2024-07-18}"
+      "value": "${CHAT_MODEL_VERSION=2025-04-14}"
+    },
+    "embeddingModelDeploymentName": {
+      "value": "${EMBEDDING_MODEL_DEPLOYMENT_NAME=text-embedding-3-large}"
+    },
+    "embeddingModelName": {
+      "value": "${EMBEDDING_MODEL_NAME=text-embedding-3-large}"
+    },
+    "embeddingModelVersion": {
+      "value": "${EMBEDDING_MODEL_VERSION=1}"
     },
     "foundryProjectName": {
       "value": "${FOUNDRY_PROJECT_NAME=fibey}"

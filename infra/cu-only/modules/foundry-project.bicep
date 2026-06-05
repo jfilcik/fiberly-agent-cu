@@ -1,10 +1,10 @@
-@description('Name of the Foundry project (child of the AI Services account).')
+@description('Name of the Foundry project (child of the AI Services resource).')
 param name string
 
-@description('Parent AI Services account name.')
+@description('Parent AI Services resource name (ARM type `Microsoft.CognitiveServices/accounts`).')
 param accountName string
 
-@description('Azure region for the project. Should match the parent account region.')
+@description('Azure region for the project. Should match the parent resource region.')
 param location string
 
 @description('Tags applied to the project.')
@@ -14,7 +14,7 @@ param tags object = {}
 param displayName string = name
 
 @description('Optional project description.')
-param description string = 'Foundry project for the Fibey CU demo.'
+param projectDescription string = 'Foundry project for the Fibey CU demo.'
 
 resource account 'Microsoft.CognitiveServices/accounts@2024-10-01' existing = {
   name: accountName
@@ -30,7 +30,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2024-10-01' = {
   }
   properties: {
     displayName: displayName
-    description: description
+    description: projectDescription
   }
 }
 

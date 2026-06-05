@@ -1,14 +1,14 @@
 @description('Name of the chat model deployment (consumed by the agent at runtime).')
 param name string
 
-@description('Parent AI Services account name.')
+@description('Parent AI Services resource name (ARM type `Microsoft.CognitiveServices/accounts`).')
 param accountName string
 
-@description('OpenAI model name (e.g. gpt-4o-mini, gpt-4o).')
-param modelName string = 'gpt-4o-mini'
+@description('OpenAI model name (e.g. gpt-4.1-mini, gpt-4.1).')
+param modelName string = 'gpt-4.1-mini'
 
 @description('Model version. Leave blank to let Azure pick the default.')
-param modelVersion string = '2024-07-18'
+param modelVersion string = '2025-04-14'
 
 @description('Deployment SKU name.')
 param skuName string = 'GlobalStandard'

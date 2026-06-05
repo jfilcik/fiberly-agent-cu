@@ -6,7 +6,7 @@ or `all three`.
 ## Scope (narrow)
 
 Resources this module configures:
-- 1 chat model deployment on the Foundry account (`gpt-4o-mini` default)
+- 1 chat model deployment on the Foundry account (`gpt-4.1-mini` default)
 - 2 CU analyzers in the CU data plane:
   - `cu_demo_work_order`
   - `cu_demo_classify_and_analyze`
@@ -80,8 +80,8 @@ If none exists:
   ```
   az cognitiveservices account deployment create \
     --name <foundryAccountName> --resource-group <foundryResourceGroup> \
-    --deployment-name gpt-4o-mini \
-    --model-format OpenAI --model-name gpt-4o-mini --model-version 2024-07-18 \
+    --deployment-name gpt-4.1-mini \
+    --model-format OpenAI --model-name gpt-4.1-mini --model-version 2025-04-14 \
     --sku-name GlobalStandard --sku-capacity 50
   ```
 - **Dev track**: stop. Provide the line above for the admin and exit.
